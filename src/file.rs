@@ -25,7 +25,7 @@ where
     Data: Serialize + Deserialize<'de>,
 {
     fn base_path() -> PathBuf {
-        if let Some(project_dirs) = directories_next::ProjectDirs::from("com", "bski", "latch") {
+        if let Some(project_dirs) = directories_next::ProjectDirs::from("com", "bski", "pants") {
             project_dirs.data_dir().into()
         } else {
             std::env::current_dir().unwrap_or_default()

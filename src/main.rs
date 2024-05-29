@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use latch::{cli::CliArgs, vault_encrypted::VaultInterface};
+use pants::{cli::CliArgs, vault_encrypted::VaultInterface};
 
 fn main() {
     let args = CliArgs::parse();

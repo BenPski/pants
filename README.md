@@ -1,3 +1,3 @@
-# latch
+# pants
 
-A password manager
+Keep your secrets safe, wear pants.
