@@ -4,8 +4,8 @@ use pants::{cli::CliArgs, vault_encrypted::VaultInterface};
 
 fn main() {
     let args = CliArgs::parse();
-    match args.command {
-        Some(command) => match VaultInterface::interaction(command) {
+    if let Some(command) = args.command {
+        match VaultInterface::interaction(command) {
             Ok(output) => {
                 let res = output.finish();
                 if let Err(e) = res {
@@ -15,8 +15,7 @@ fn main() {
             Err(e) => {
                 println!("Encountered error: {}", e);
             }
-        },
-        _ => {}
+        }
     }
 }
 // fn main() {

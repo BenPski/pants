@@ -65,7 +65,7 @@ impl Store {
 
     pub fn prompt(repr: &str) -> Result<Store, Box<dyn Error>> {
         match repr {
-            "password" => Self::get_password().map(|s| Store::Password(s)),
+            "password" => Self::get_password().map(Store::Password),
             "username-password" => {
                 let username_input = inquire::Text::new("Username:")
                     .with_help_message("New username")

@@ -56,10 +56,10 @@ impl Commands {
         self.commands.push(command);
     }
 
-    pub fn add(mut self, command: Command) -> Self {
-        self.commands.push(command);
-        self
-    }
+    // pub fn add(mut self, command: Command) -> Self {
+    //     self.commands.push(command);
+    //     self
+    // }
 }
 
 impl Instructions {
@@ -68,11 +68,7 @@ impl Instructions {
             Some(_) => Err(Box::new(ConversionError::Exists)),
             None => {
                 let value = Store::prompt(style)?;
-                let commands: Commands = vec![Command::Update {
-                    key: name,
-                    value: value,
-                }]
-                .into();
+                let commands: Commands = vec![Command::Update { key: name, value }].into();
                 Ok(commands.into())
             }
         }
@@ -93,11 +89,7 @@ impl Instructions {
                 None => Err(Box::new(ConversionError::NoEntry)),
                 Some(value) => {
                     let value = Store::prompt(value)?;
-                    let commands: Commands = vec![Command::Update {
-                        key: key,
-                        value: value,
-                    }]
-                    .into();
+                    let commands: Commands = vec![Command::Update { key, value }].into();
                     Ok(commands.into())
                 }
             },

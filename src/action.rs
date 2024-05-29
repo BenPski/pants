@@ -59,8 +59,8 @@ impl Record {
         self.actions.push(action);
     }
 
-    pub fn add(mut self, action: Action) -> Self {
-        self.actions.push(action);
-        self
-    }
+    // pub fn add(mut self, action: Action) -> Self {
+    //     self.actions.push(action);
+    //     self
+    // }
 }
