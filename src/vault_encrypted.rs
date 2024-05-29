@@ -182,21 +182,19 @@ impl VaultInterface {
     }
 
     fn check_unfinished(&mut self) -> Result<(), Box<dyn Error>> {
-        match RecordFile::last() {
-            Some(file) => {
-                let ans = Confirm::new("There appears to be an unapplied update, apply it? Will clear out old record if not applied.")
-                        .with_default(true)
-                        .with_help_message("Likely occurred due to some failure in saving off the updates from the previous interaction.")
-                        .prompt();
+        if let Some(file) = RecordFile::last() {
+            let ans = Confirm::new("There appears to be an unapplied update, apply it? Will clear out old record if not applied.")
+                .with_default(true)
+                .with_help_message("Likely occurred due to some failure in saving off the updates from the previous interaction.")
+                .prompt();
 
-                match ans {
-                    Ok(true) => self.apply_unfinished(file)?,
-                    Ok(false) => file.delete()?,
-                    Err(_) => (),
-                }
+            match ans {
+                Ok(true) => self.apply_unfinished(file)?,
+                Ok(false) => file.delete()?,
+                Err(_) => (),
             }
-            None => (),
         }
+
         Ok(())
     }
 

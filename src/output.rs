@@ -92,7 +92,7 @@ impl Display for Output {
                     write!(f, "No entries")
                 } else {
                     for item in items {
-                        write!(f, "{}\n", item)?;
+                        writeln!(f, "{}", item)?;
                     }
                     Ok(())
                 }

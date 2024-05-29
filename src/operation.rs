@@ -29,10 +29,10 @@ impl Operations {
         self.operations.push(operation);
     }
 
-    pub fn add(mut self, operation: Operation) -> Self {
-        self.operations.push(operation);
-        self
-    }
+    // pub fn add(mut self, operation: Operation) -> Self {
+    //     self.operations.push(operation);
+    //     self
+    // }
 }
 
 impl IntoIterator for Operations {

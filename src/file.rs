@@ -45,8 +45,7 @@ where
 
     fn delete(&self) -> Result<(), Box<dyn Error>> {
         let path = self.path();
-        let res = fs::remove_file(path)?;
-        Ok(res)
+        Ok(fs::remove_file(path)?)
     }
 
     fn open(&self) -> Result<File, Box<dyn Error>> {
@@ -176,19 +175,17 @@ where
         path.push(&Self::name());
         path.push(format!("{}-*.json", Self::name()));
         let mut paths = vec![];
-        for entry in glob(path.to_str().unwrap()).expect("Failed to read glob pattern") {
-            match entry {
-                Ok(p) => {
-                    let file_name = p.file_stem().unwrap().to_str().unwrap();
-                    let split = file_name.split_once('-').unwrap();
-                    let _name = split.0.to_owned();
-                    let timestamp = read_date(split.1);
-                    match timestamp {
-                        Err(err) => println!("Malformed timestamp in filename: {:?}. {:?}", p, err),
-                        Ok(t) => paths.push(Self::new(t)),
-                    }
-                }
-                _ => {}
+        for entry in glob(path.to_str().unwrap())
+            .expect("Failed to read glob pattern")
+            .flatten()
+        {
+            let file_name = entry.file_stem().unwrap().to_str().unwrap();
+            let split = file_name.split_once('-').unwrap();
+            let _name = split.0.to_owned();
+            let timestamp = read_date(split.1);
+            match timestamp {
+                Err(err) => println!("Malformed timestamp in filename: {:?}. {:?}", entry, err),
+                Ok(t) => paths.push(Self::new(t)),
             }
         }
         paths

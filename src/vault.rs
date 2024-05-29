@@ -72,16 +72,15 @@ impl Vault {
     }
 
     fn apply_action(&mut self, action: Action) {
-        match action {
-            Action::Replace { key, start: _, end } => match end {
+        if let Action::Replace { key, start: _, end } = action {
+            match end {
                 Some(value) => {
                     self.data.insert(key, value);
                 }
                 None => {
                     self.data.remove(&key);
                 }
-            },
-            _ => (),
+            }
         }
     }
 
