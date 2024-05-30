@@ -28,7 +28,6 @@ impl Default for Vault {
 
 impl Vault {
     pub fn new() -> Vault {
-        let _salt_string = SaltString::generate(&mut OsRng);
         Self {
             data: HashMap::new(),
         }
