@@ -1,9 +1,6 @@
 use core::str;
 use std::collections::HashMap;
 
-use aes_gcm::aead::OsRng;
-use argon2::password_hash::SaltString;
-
 use serde::{Deserialize, Serialize};
 
 use crate::reads::Reads;
@@ -28,7 +25,6 @@ impl Default for Vault {
 
 impl Vault {
     pub fn new() -> Vault {
-        let _salt_string = SaltString::generate(&mut OsRng);
         Self {
             data: HashMap::new(),
         }
