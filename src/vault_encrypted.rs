@@ -144,12 +144,43 @@ impl VaultInterface {
                 Ok(Output::List(schema.all_info()))
             }
             Interaction::Backup => {
-                // Not 100% on this, do not want to reuse the nonce from the original vault, but
-                // the salt should be ok to reuse
                 let interface = Self::get_interface(schema_file)?;
                 let backup = interface.backup()?;
 
                 Ok(Output::Backup(backup.path()))
+            }
+            Interaction::BackupList => {
+                let backups = BackupFile::all();
+                Ok(Output::List(
+                    backups.into_iter().map(|b| b.to_string()).collect(),
+                ))
+            }
+            Interaction::BackupRestore => {
+                let backups = BackupFile::all();
+                let backup_file =
+                    inquire::Select::new("Which backup to restore?", backups).prompt()?;
+
+                let backup_password = inquire::Password::new("Backup's password:")
+                    .with_display_toggle_enabled()
+                    .with_display_mode(inquire::PasswordDisplayMode::Masked)
+                    .without_confirmation()
+                    .prompt()?;
+                let backup_vault_enc = backup_file.read()?.deserialize();
+                let backup_key = backup_vault_enc.key(backup_password);
+                let _backup_vault = backup_vault_enc.decrypt(backup_key)?.deserialize();
+
+                let mut interface = Self::get_interface(schema_file)?;
+                let _vault = interface.vault.decrypt(interface.key)?.deserialize();
+
+                // have proved that the user knows the backup's and current vault's password and
+                // the decryption of both, so make a backup of the current vault and then copy in
+                // the old vault as the current vault
+                let new_backup = interface.backup()?;
+
+                interface.vault = backup_vault_enc;
+                interface.key = backup_key;
+                interface.save()?;
+                Ok(Output::Backup(new_backup.path()))
             }
             Interaction::Rotate => {
                 // TODO: does extra unnecessary decryption

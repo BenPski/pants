@@ -24,6 +24,8 @@ pub enum Command {
 pub enum Interaction {
     List,
     Backup,
+    BackupList,
+    BackupRestore,
     Rotate,
 }
 
@@ -98,7 +100,11 @@ impl Instructions {
                 Ok(commands.into())
             }
             CLICommands::List => Ok(Interaction::List.into()),
-            CLICommands::Backup => Ok(Interaction::Backup.into()),
+            CLICommands::Backup { option } => match option {
+                None => Ok(Interaction::Backup.into()),
+                Some(crate::cli::BackupCommand::List) => Ok(Interaction::BackupList.into()),
+                Some(crate::cli::BackupCommand::Restore) => Ok(Interaction::BackupRestore.into()),
+            },
             CLICommands::Rotate => Ok(Interaction::Rotate.into()),
             _ => todo!(),
         }
