@@ -127,4 +127,4 @@ pub mod secure;
 pub mod store;
 pub mod utils;
 pub mod vault;
-pub mod vault_encrypted;
+// pub mod vault_encrypted;

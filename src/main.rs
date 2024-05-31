@@ -1,5 +1,5 @@
 use clap::Parser;
-use pants_store::{cli::CliArgs, vault_encrypted::VaultInterface};
+use pants_store::{cli::CliArgs, vault::interact::VaultInterface};
 
 fn main() {
     let args = CliArgs::parse();

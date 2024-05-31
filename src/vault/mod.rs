@@ -1,16 +1,18 @@
-use core::str;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::reads::Reads;
-use crate::schema::Schema;
-use crate::store::Store;
 use crate::{
     action::{Action, Record},
     command::Commands,
     operation::{Operation, Operations},
+    reads::Reads,
+    schema::Schema,
+    store::Store,
 };
+
+pub mod encrypted;
+pub mod interact;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Vault {
