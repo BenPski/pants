@@ -1,5 +1,6 @@
 use std::{
     error::Error,
+    fmt::Display,
     fs::{self, File},
     io::{Read, Write},
     marker::PhantomData,
@@ -95,10 +96,28 @@ pub struct TimestampedFile<Data> {
     data_type: PhantomData<Data>,
 }
 
+impl<'de, Data> Display for TimestampedFile<Data>
+where
+    Data: Serialize + Deserialize<'de>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.path())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct NonTimestampedFile<Data> {
     name: String,
     data_type: PhantomData<Data>,
+}
+
+impl<'de, Data> Display for NonTimestampedFile<Data>
+where
+    Data: Serialize + Deserialize<'de>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.path())
+    }
 }
 
 impl<'de, Data> ProjectFile<'de, Data> for TimestampedFile<Data>

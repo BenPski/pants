@@ -25,8 +25,11 @@ pub enum CLICommands {
     Delete { key: String },
     /// list the entries in the vault
     List,
-    /// create a backup of the vault
-    Backup,
+    /// interact with backups, defaults to creating a new backup
+    Backup {
+        #[command(subcommand)]
+        option: Option<BackupCommand>,
+    },
     /// rotate master password for the vault
     Rotate, // Transaction,
     /// generate password
@@ -43,4 +46,12 @@ pub enum EntryStyle {
     UsernamePassword {
         name: String,
     },
+}
+
+#[derive(Subcommand)]
+pub enum BackupCommand {
+    /// list available backups
+    List,
+    /// restore from existing backups
+    Restore,
 }
