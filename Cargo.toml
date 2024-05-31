@@ -2,6 +2,15 @@
 name = "pants-store"
 version = "0.1.0"
 edition = "2021"
+description = "A password manager"
+authors = ["Ben Pawlowski ben@pepski.com"]
+license = "MIT"
+repository = "https://github.com/BenPski/pants"
+readme = "README.md"
+exclude = [".github", "scripts"]
+rust-version = "1.63.0"
+keywords = ["passwords"]
+categories = ["command-line-utilities", "cryptography"]
 
 [[bin]]
 path = "src/main.rs"
