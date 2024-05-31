@@ -1,7 +1,11 @@
 [package]
-name = "pants"
+name = "pants-store"
 version = "0.1.0"
 edition = "2021"
+
+[[bin]]
+path = "src/main.rs"
+name = "pants"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,6 +19,7 @@ clap = { version = "4.5.4", features = ["derive"] }
 directories-next = "2.0.0"
 glob = "0.3.1"
 inquire = "0.7.5"
+pants-gen = "0.1.0"
 rand = "0.8.5"
 secrecy = "0.8.0"
 serde = { version = "1.0.199", features = ["derive"] }

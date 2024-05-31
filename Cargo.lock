@@ -852,7 +852,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
-name = "pants"
+name = "pants-gen"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5effbb9dd86bf7a8353b7690b6cecafcbc32a6721c397e63280ebbfee060aa3a"
+dependencies = [
+ "clap",
+ "rand",
+]
+
+[[package]]
+name = "pants-store"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
@@ -864,6 +874,7 @@ dependencies = [
  "directories-next",
  "glob",
  "inquire",
+ "pants-gen",
  "rand",
  "secrecy",
  "serde",
