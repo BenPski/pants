@@ -5,7 +5,6 @@ pub mod errors;
 pub mod file;
 pub mod operation;
 pub mod output;
-pub mod password;
 pub mod reads;
 pub mod schema;
 pub mod secure;

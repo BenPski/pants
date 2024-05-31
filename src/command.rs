@@ -100,6 +100,7 @@ impl Instructions {
             CLICommands::List => Ok(Interaction::List.into()),
             CLICommands::Backup => Ok(Interaction::Backup.into()),
             CLICommands::Rotate => Ok(Interaction::Rotate.into()),
+            _ => todo!(),
         }
     }
 }

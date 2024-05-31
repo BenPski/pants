@@ -1,12 +1,10 @@
 use std::{error::Error, fmt::Display};
 
 use inquire::Confirm;
+use pants_gen::password::Password;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    errors::SchemaError,
-    password::{CharStyle, Password},
-};
+use crate::errors::SchemaError;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum Store {
@@ -111,20 +109,20 @@ impl Store {
                     .with_help_message("Use special symbols in password generation")
                     .prompt()?;
 
-                let mut choices = vec![];
+                let mut spec = Password::new().length(length_input);
+
                 if upper {
-                    choices.push(CharStyle::Upper.at_least(1));
+                    spec = spec.upper_at_least(1);
                 }
                 if lower {
-                    choices.push(CharStyle::Lower.at_least(1));
+                    spec = spec.lower_at_least(1);
                 }
                 if numbers {
-                    choices.push(CharStyle::Number.at_least(1));
+                    spec = spec.number_at_least(1);
                 }
                 if symbols {
-                    choices.push(CharStyle::Symbol.at_least(1));
+                    spec = spec.symbol_at_least(1);
                 }
-                let spec = Password::new(choices, length_input);
                 let password = spec.generate().unwrap();
                 Ok(password)
             }
