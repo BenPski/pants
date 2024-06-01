@@ -1,32 +1,10 @@
-use std::error::Error;
-
-use crate::{
-    cli::{CLICommands, EntryStyle},
-    errors::ConversionError,
-    schema::Schema,
-    store::Store,
-};
-
-#[derive(Debug, Clone)]
-pub enum Instructions {
-    Interaction(Interaction),
-    Commands(Commands),
-}
+use crate::store::Store;
 
 #[derive(Debug, Clone)]
 pub enum Command {
     Read { key: String },
     Update { key: String, value: Store },
     Delete { key: String },
-}
-
-#[derive(Debug, Clone)]
-pub enum Interaction {
-    List,
-    Backup,
-    BackupList,
-    BackupRestore,
-    Rotate,
 }
 
 #[derive(Debug, Clone)]
@@ -64,67 +42,16 @@ impl Commands {
     // }
 }
 
-impl Instructions {
-    fn handle_new(name: String, schema: Schema, style: &str) -> Result<Self, Box<dyn Error>> {
-        match schema.get(&name) {
-            Some(_) => Err(Box::new(ConversionError::Exists)),
-            None => {
-                let value = Store::prompt(style)?;
-                let commands: Commands = vec![Command::Update { key: name, value }].into();
-                Ok(commands.into())
-            }
-        }
-    }
-    pub fn from_commands(commands: CLICommands, schema: Schema) -> Result<Self, Box<dyn Error>> {
-        match commands {
-            CLICommands::New { style } => match style {
-                EntryStyle::Password { name } => Self::handle_new(name, schema, "password"),
-                EntryStyle::UsernamePassword { name } => {
-                    Self::handle_new(name, schema, "username-password")
-                }
-            },
-            CLICommands::Get { key } => {
-                let commands: Commands = vec![Command::Read { key }].into();
-                Ok(commands.into())
-            }
-            CLICommands::Update { key } => match schema.get(&key) {
-                None => Err(Box::new(ConversionError::NoEntry)),
-                Some(value) => {
-                    let value = Store::prompt(value)?;
-                    let commands: Commands = vec![Command::Update { key, value }].into();
-                    Ok(commands.into())
-                }
-            },
-            CLICommands::Delete { key } => {
-                let commands: Commands = vec![Command::Delete { key }].into();
-                Ok(commands.into())
-            }
-            CLICommands::List => Ok(Interaction::List.into()),
-            CLICommands::Backup { option } => match option {
-                None => Ok(Interaction::Backup.into()),
-                Some(crate::cli::BackupCommand::List) => Ok(Interaction::BackupList.into()),
-                Some(crate::cli::BackupCommand::Restore) => Ok(Interaction::BackupRestore.into()),
-            },
-            CLICommands::Rotate => Ok(Interaction::Rotate.into()),
-            _ => todo!(),
-        }
-    }
-}
-
 impl From<Vec<Command>> for Commands {
     fn from(value: Vec<Command>) -> Self {
         Self { commands: value }
     }
 }
 
-impl From<Commands> for Instructions {
-    fn from(value: Commands) -> Self {
-        Instructions::Commands(value)
-    }
-}
-
-impl From<Interaction> for Instructions {
-    fn from(value: Interaction) -> Self {
-        Instructions::Interaction(value)
+impl From<Command> for Commands {
+    fn from(value: Command) -> Self {
+        Self {
+            commands: vec![value],
+        }
     }
 }

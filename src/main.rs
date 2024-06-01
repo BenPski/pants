@@ -1,31 +1,34 @@
-use clap::Parser;
-use pants_store::{cli::CliArgs, vault::interact::VaultInterface};
+use pants_store::cli::CliArgs;
 
 fn main() {
-    let args = CliArgs::parse();
-    if let Some(command) = args.command {
-        match command {
-            pants_store::cli::CLICommands::Gen(args) => {
-                if let Some(p) = args.execute() {
-                    println!("{p}");
-                } else {
-                    println!("Could not satisfy password spec constraints");
-                }
-            }
-            _ => match VaultInterface::interaction(command) {
-                Ok(output) => {
-                    let res = output.finish();
-                    if let Err(e) = res {
-                        println!("Encountered error: {}", e);
-                    }
-                }
-                Err(e) => {
-                    println!("Encountered error: {}", e);
-                }
-            },
-        }
-    }
+    CliArgs::run()
 }
+
+// fn main() {
+//     let args = CliArgs::parse();
+//     if let Some(command) = args.command {
+//         match command {
+//             pants_store::cli::CLICommands::Gen(args) => {
+//                 if let Some(p) = args.execute() {
+//                     println!("{p}");
+//                 } else {
+//                     println!("Could not satisfy password spec constraints");
+//                 }
+//             }
+//             _ => match VaultInterface::interaction(command) {
+//                 Ok(output) => {
+//                     let res = output.finish();
+//                     if let Err(e) = res {
+//                         println!("Encountered error: {}", e);
+//                     }
+//                 }
+//                 Err(e) => {
+//                     println!("Encountered error: {}", e);
+//                 }
+//             },
+//         }
+//     }
+// }
 // fn main() {
 //     let validator = |input: &str| {
 //         if input.chars().count() == 0 {

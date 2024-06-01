@@ -1,3 +1,7 @@
+pub mod encrypted;
+pub mod interface;
+
+use core::str;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -10,9 +14,6 @@ use crate::{
     schema::Schema,
     store::Store,
 };
-
-pub mod encrypted;
-pub mod interact;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Vault {
@@ -92,11 +93,11 @@ impl Vault {
         self.data.into_keys().collect()
     }
 
-    pub fn schema(self) -> Schema {
-        self.data
-            .into_iter()
-            .map(|(key, value)| (key, value.repr()))
-            .collect::<HashMap<String, String>>()
-            .into()
+    pub fn schema(&self) -> Schema {
+        let mut map: HashMap<String, String> = HashMap::new();
+        for (key, value) in &self.data {
+            map.insert(key.to_string(), value.repr());
+        }
+        map.into()
     }
 }

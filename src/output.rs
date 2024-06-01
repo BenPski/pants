@@ -1,14 +1,16 @@
-use std::{error::Error, fmt::Display, path::PathBuf, thread, time::Duration};
+use std::{error::Error, fmt::Display, thread, time::Duration};
 
 use arboard::Clipboard;
 
-use crate::{reads::Reads, store::Store};
+use crate::{file::BackupFile, reads::Reads, schema::Schema, store::Store};
 
 #[derive(Debug)]
 pub enum Output {
+    Schema(Schema),
+    BackupFiles(Vec<BackupFile>),
     Read(Reads<Store>),
     List(Vec<String>),
-    Backup(PathBuf),
+    Backup(BackupFile),
     Nothing,
 }
 
@@ -74,10 +76,20 @@ impl Output {
                 Ok(())
             }
             Self::Backup(path) => {
-                println!("Backed up to {}", path.to_str().unwrap());
+                println!("Backed up to {}", path);
                 Ok(())
             }
-            _ => Ok(()),
+            Self::Nothing => Ok(()),
+            Output::Schema(schema) => {
+                println!("{}", schema);
+                Ok(())
+            }
+            Output::BackupFiles(files) => {
+                for file in files {
+                    println!("{}", file);
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -86,7 +98,7 @@ impl Display for Output {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Nothing => write!(f, ""),
-            Self::Backup(path) => write!(f, "Backed up to {}", path.to_str().unwrap()),
+            Self::Backup(path) => write!(f, "Backed up to {}", path),
             Self::List(items) => {
                 if items.is_empty() {
                     write!(f, "No entries")
@@ -99,6 +111,18 @@ impl Display for Output {
             }
             Self::Read(reads) => {
                 write!(f, "{}", reads)
+            }
+            Self::BackupFiles(items) => {
+                for item in items {
+                    writeln!(f, "{}", item)?;
+                }
+                Ok(())
+            }
+            Self::Schema(schema) => {
+                for (key, value) in schema.data.iter() {
+                    writeln!(f, "{}: {}", key, value)?;
+                }
+                Ok(())
             }
         }
     }

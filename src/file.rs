@@ -223,7 +223,7 @@ where
         }
     }
 
-    pub fn check(&self) -> bool {
+    pub fn exists(&self) -> bool {
         self.path().exists()
     }
 }
