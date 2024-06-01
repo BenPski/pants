@@ -7,6 +7,14 @@ pub struct Schema {
     data: HashMap<String, String>,
 }
 
+impl Default for Schema {
+    fn default() -> Self {
+        Schema {
+            data: HashMap::new(),
+        }
+    }
+}
+
 impl Schema {
     pub fn new(data: HashMap<String, String>) -> Self {
         Self { data }

@@ -1,68 +1,17 @@
-use std::{cell::RefCell, collections::HashMap, error::Error, rc::Rc};
+use std::{cell::RefCell, error::Error, rc::Rc};
 
-use aes_gcm::{aead::OsRng, Aes256Gcm, Key};
-use argon2::password_hash::SaltString;
-use inquire::Confirm;
-use serde::{Deserialize, Serialize};
+use aes_gcm::{Aes256Gcm, Key};
 
 use crate::{
-    action::Record,
     cli::CLICommands,
     command::{Commands, Instructions, Interaction},
     file::{BackupFile, ProjectFile, RecordFile, SchemaFile, VaultFile},
     output::Output,
     schema::Schema,
     secure::{Encrypted, SecureData},
-    vault::Vault,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PasswordEncrypted<Data> {
-    data: Encrypted<Data>,
-    salt: String,
-}
-
-impl<Data> SecureData for PasswordEncrypted<Data> {
-    type Item = Data;
-    fn salt(&self) -> &str {
-        &self.salt
-    }
-    fn data(&self) -> &Encrypted<Self::Item> {
-        &self.data
-    }
-}
-
-pub type VaultEncrypted = PasswordEncrypted<Vault>;
-
-impl VaultEncrypted {
-    fn new(password: String) -> Result<Self, Box<dyn Error>> {
-        let salt = SaltString::generate(&mut OsRng).to_string();
-        let key = Self::get_key(&salt, password);
-        Encrypted::encrypt(&Vault::new(), key).map(|vault| Self { data: vault, salt })
-    }
-
-    fn update(&mut self, data: &Vault, key: Key<Aes256Gcm>) -> Result<(), Box<dyn Error>> {
-        let updated = Encrypted::encrypt(data, key)?;
-        self.data = updated;
-        Ok(())
-    }
-}
-
-pub type RecordEncrypted = PasswordEncrypted<Record>;
-
-impl RecordEncrypted {
-    fn new(password: String) -> Result<Self, Box<dyn Error>> {
-        let salt = SaltString::generate(&mut OsRng).to_string();
-        let key = Self::get_key(&salt, password);
-        Encrypted::encrypt(&Record::new(), key).map(|vault| Self { data: vault, salt })
-    }
-
-    fn update(&mut self, data: &Record, key: Key<Aes256Gcm>) -> Result<(), Box<dyn Error>> {
-        let updated = Encrypted::encrypt(data, key)?;
-        self.data = updated;
-        Ok(())
-    }
-}
+use super::encrypted::{RecordEncrypted, VaultEncrypted};
 
 pub struct VaultInterface {
     vault_file: VaultFile,
@@ -214,7 +163,7 @@ impl VaultInterface {
 
     fn check_unfinished(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(file) = RecordFile::last() {
-            let ans = Confirm::new("There appears to be an unapplied update, apply it? Will clear out old record if not applied.")
+            let ans = inquire::Confirm::new("There appears to be an unapplied update, apply it? Will clear out old record if not applied.")
                 .with_default(true)
                 .with_help_message("Likely occurred due to some failure in saving off the updates from the previous interaction.")
                 .prompt();
@@ -277,7 +226,7 @@ impl VaultInterface {
         } else {
             // ensure a file exists since it can get used later
             // TODO: should rework to make this not necessary
-            let s = Schema::new(HashMap::new());
+            let s = Schema::default();
             schema_file.borrow_mut().write(&s)?;
             s
         };

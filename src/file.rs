@@ -15,7 +15,7 @@ use crate::{
     errors::SaveError,
     schema::Schema,
     utils::{format_date, now, read_date},
-    vault_encrypted::{RecordEncrypted, VaultEncrypted},
+    vault::encrypted::{RecordEncrypted, VaultEncrypted},
 };
 
 // TODO: create encrypted files that need to be given a password/key to open
