@@ -117,6 +117,14 @@ impl From<Vec<Command>> for Commands {
     }
 }
 
+impl From<Command> for Commands {
+    fn from(value: Command) -> Self {
+        Self {
+            commands: vec![value],
+        }
+    }
+}
+
 impl From<Commands> for Instructions {
     fn from(value: Commands) -> Self {
         Instructions::Commands(value)

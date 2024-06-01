@@ -1,6 +1,4 @@
-use std::path::PathBuf;
-
-use crate::{store::Store, Password};
+use crate::{file::BackupFile, store::Store, Password};
 
 // messages that are used to send to the server
 pub enum Message {
@@ -9,7 +7,7 @@ pub enum Message {
     Delete(Password, String),
     Backup(Password),
     Rotate(Password, Password),
-    Restore(Password, Password, PathBuf),
+    Restore(Password, Password, BackupFile),
     Schema,
     BackupList,
 }

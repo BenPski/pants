@@ -35,6 +35,14 @@ impl VaultEncrypted {
         Encrypted::encrypt(&Vault::new(), key).map(|vault| Self { data: vault, salt })
     }
 
+    pub fn from_vault(
+        salt: String,
+        key: Key<Aes256Gcm>,
+        vault: &Vault,
+    ) -> Result<Self, Box<dyn Error>> {
+        Encrypted::encrypt(vault, key).map(|vault| Self { data: vault, salt })
+    }
+
     pub fn update(&mut self, data: &Vault, key: Key<Aes256Gcm>) -> Result<(), Box<dyn Error>> {
         let updated = Encrypted::encrypt(data, key)?;
         self.data = updated;

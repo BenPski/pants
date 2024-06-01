@@ -106,3 +106,22 @@ impl Display for SchemaError {
         }
     }
 }
+
+#[derive(Debug)]
+pub enum CommunicationError {
+    UnexpectedOutput,
+    NoEntry,
+    ExistingEntry,
+}
+
+impl Error for CommunicationError {}
+
+impl Display for CommunicationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnexpectedOutput => write!(f, "Received unexpected output from vault"),
+            Self::NoEntry => write!(f, "Expected existing entry, but no entry exists"),
+            Self::ExistingEntry => write!(f, "Expected no existing entry, but entry exists"),
+        }
+    }
+}
