@@ -1,3 +1,6 @@
+pub mod encrypted;
+pub mod interface;
+
 use core::str;
 use std::collections::HashMap;
 
@@ -90,11 +93,11 @@ impl Vault {
         self.data.into_keys().collect()
     }
 
-    pub fn schema(self) -> Schema {
-        self.data
-            .into_iter()
-            .map(|(key, value)| (key, value.repr()))
-            .collect::<HashMap<String, String>>()
-            .into()
+    pub fn schema(&self) -> Schema {
+        let mut map: HashMap<String, String> = HashMap::new();
+        for (key, value) in &self.data {
+            map.insert(key.to_string(), value.repr());
+        }
+        map.into()
     }
 }
