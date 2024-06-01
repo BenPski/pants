@@ -20,29 +20,6 @@ impl Display for SaveError {
 }
 
 #[derive(Debug)]
-pub enum ConversionError {
-    PasswordGeneration,
-    NoEntry,
-    Exists,
-    PromptError,
-}
-
-impl Error for ConversionError {}
-
-impl Display for ConversionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::PasswordGeneration => {
-                write!(f, "Constraints for password generation could not be met")
-            }
-            Self::NoEntry => write!(f, "No relevant entry found in schema"),
-            Self::Exists => write!(f, "Entry already exists"),
-            Self::PromptError => write!(f, "Error during prompting"),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub enum EncryptionError {
     Encryption,
 }
@@ -68,21 +45,6 @@ impl Display for DecryptionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DecryptionError::Decryption => write!(f, "Failed to decrypt data"),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum InteractionError {
-    DifferentPasswords,
-}
-
-impl Error for InteractionError {}
-
-impl Display for InteractionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::DifferentPasswords => write!(f, "Given passwords don't match"),
         }
     }
 }
