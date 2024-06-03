@@ -1,4 +1,4 @@
-use std::{cell::RefCell, error::Error, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use aes_gcm::{Aes256Gcm, Key};
 use argon2::password_hash::SaltString;
@@ -33,7 +33,7 @@ pub struct VaultInterface {
 }
 
 impl VaultInterface {
-    pub fn receive(message: Message) -> Result<Output, Box<dyn Error>> {
+    pub fn receive(message: Message) -> anyhow::Result<Output> {
         match message {
             Message::Get(password, key) => {
                 let command = Command::Read { key };
@@ -104,13 +104,13 @@ impl VaultInterface {
         }
     }
 
-    fn load_interface(password: Password) -> Result<VaultInterface, Box<dyn Error>> {
+    fn load_interface(password: Password) -> anyhow::Result<VaultInterface> {
         let mut interface = Self::get_interface(password)?;
         interface.check_unfinished()?;
         Ok(interface)
     }
 
-    fn get_interface(password: Password) -> Result<Self, Box<dyn Error>> {
+    fn get_interface(password: Password) -> anyhow::Result<Self> {
         let vault_file = VaultFile::default();
         let record_file = RecordFile::default();
         let schema_file = SchemaFile::default();
@@ -141,7 +141,7 @@ impl VaultInterface {
         })
     }
 
-    fn check_unfinished(&mut self) -> Result<(), Box<dyn Error>> {
+    fn check_unfinished(&mut self) -> anyhow::Result<()> {
         if let Some(file) = RecordFile::last() {
             self.apply_unfinished(file)?
         }
@@ -149,7 +149,7 @@ impl VaultInterface {
         Ok(())
     }
 
-    fn apply_unfinished(&mut self, record_file: RecordFile) -> Result<(), Box<dyn Error>> {
+    fn apply_unfinished(&mut self, record_file: RecordFile) -> anyhow::Result<()> {
         let record = record_file
             .read()?
             .deserialize()
@@ -161,14 +161,14 @@ impl VaultInterface {
         Ok(())
     }
 
-    fn save(&mut self) -> Result<(), Box<dyn Error>> {
+    fn save(&mut self) -> anyhow::Result<()> {
         self.vault_encrypted.update(&self.vault, self.key)?;
         self.vault_file.borrow_mut().write(&self.vault_encrypted)?;
         self.schema_file.borrow_mut().write(&self.vault.schema())?;
         Ok(())
     }
 
-    fn backup(&self) -> Result<BackupFile, Box<dyn Error>> {
+    fn backup(&self) -> anyhow::Result<BackupFile> {
         let mut backup_file = BackupFile::default();
         let backup = VaultEncrypted {
             salt: self.vault_encrypted.salt.clone(),
@@ -178,7 +178,7 @@ impl VaultInterface {
         Ok(backup_file)
     }
 
-    fn transaction(&mut self, commands: Commands) -> Result<Reads<Store>, Box<dyn Error>> {
+    fn transaction(&mut self, commands: Commands) -> anyhow::Result<Reads<Store>> {
         let (reads, record) = self.vault.transaction(commands);
         self.record.update(&record, self.key)?;
 

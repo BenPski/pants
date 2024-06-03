@@ -1,89 +1,41 @@
-use std::{error::Error, fmt::Display};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum SaveError {
+    #[error("Unable to format data")]
     Format,
+    #[error("Unable to create the file or the parent directories")]
     File,
+    #[error("Unable to write to the desired path")]
     Write,
 }
 
-impl Error for SaveError {}
-
-impl Display for SaveError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Format => write!(f, "Unable to format data"),
-            Self::Write => write!(f, "Unable to write to the desired path"),
-            Self::File => write!(f, "Unable to create the file or parent directories"),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum EncryptionError {
+    #[error("Failed to encrypt data")]
     Encryption,
 }
 
-impl Error for EncryptionError {}
-
-impl Display for EncryptionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            EncryptionError::Encryption => write!(f, "Failed to encrypt data"),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum DecryptionError {
+    #[error("Failed to decrypt data")]
     Decryption,
 }
 
-impl Error for DecryptionError {}
-
-impl Display for DecryptionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DecryptionError::Decryption => write!(f, "Failed to decrypt data"),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum SchemaError {
+    #[error("Not a valid schema type")]
     BadType,
+    #[error("Invalid values for creating data to store")]
     BadValues,
 }
 
-// unsafe impl Send for SchemaError {}
-// unsafe impl Sync for SchemaError {}
-
-impl Error for SchemaError {}
-
-impl Display for SchemaError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::BadType => write!(f, "Not a valid schema type"),
-            Self::BadValues => write!(f, "Invalid values for creating data to store"),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum CommunicationError {
+    #[error("Received unexpected output from the vault")]
     UnexpectedOutput,
+    #[error("Expected an existing entry, but no entry exists")]
     NoEntry,
+    #[error("Expected no existing entry, but an entry exists")]
     ExistingEntry,
-}
-
-impl Error for CommunicationError {}
-
-impl Display for CommunicationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::UnexpectedOutput => write!(f, "Received unexpected output from vault"),
-            Self::NoEntry => write!(f, "Expected existing entry, but no entry exists"),
-            Self::ExistingEntry => write!(f, "Expected no existing entry, but entry exists"),
-        }
-    }
 }

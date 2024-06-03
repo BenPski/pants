@@ -15,7 +15,7 @@ use crate::{
     store::Store,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Vault {
     data: HashMap<String, Store>,
 }

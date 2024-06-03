@@ -119,6 +119,7 @@ pub mod cli;
 pub mod command;
 pub mod errors;
 pub mod file;
+pub mod gui;
 pub mod message;
 pub mod operation;
 pub mod output;

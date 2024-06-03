@@ -1,4 +1,4 @@
-use std::{error::Error, process::exit};
+use std::process::exit;
 
 use clap::{Parser, Subcommand};
 
@@ -98,7 +98,7 @@ impl CliArgs {
         }
     }
 
-    fn construct_message(command: CLICommands) -> Result<Message, Box<dyn Error>> {
+    fn construct_message(command: CLICommands) -> anyhow::Result<Message> {
         match command {
             CLICommands::Get { key } => {
                 let password = Self::get_password("Vault password:")?;
@@ -107,7 +107,7 @@ impl CliArgs {
             CLICommands::Update { key } => {
                 let schema = Self::get_schema()?;
                 match schema.get(&key) {
-                    None => Err(Box::new(CommunicationError::NoEntry)),
+                    None => Err(Box::new(CommunicationError::NoEntry).into()),
                     Some(style) => {
                         let value = Store::prompt(style)?;
                         let password = Self::get_password("Vault password:")?;
@@ -149,7 +149,7 @@ impl CliArgs {
                             let backup_password = Self::get_password("Backup's password:")?;
                             Ok(Message::Restore(password, backup_password, backup_file))
                         }
-                        _ => Err(Box::new(CommunicationError::UnexpectedOutput)),
+                        _ => Err(Box::new(CommunicationError::UnexpectedOutput).into()),
                     }
                 }
             },
@@ -159,25 +159,25 @@ impl CliArgs {
         }
     }
 
-    fn handle_new(schema: Schema, key: String, style: &str) -> Result<Message, Box<dyn Error>> {
+    fn handle_new(schema: Schema, key: String, style: &str) -> anyhow::Result<Message> {
         match schema.get(&key) {
             None => {
                 let value = Store::prompt(style)?;
                 let password = Self::get_password("Vault password:")?;
                 Ok(Message::Update(password, key, value))
             }
-            Some(_) => Err(Box::new(CommunicationError::ExistingEntry)),
+            Some(_) => Err(Box::new(CommunicationError::ExistingEntry).into()),
         }
     }
 
-    fn get_schema() -> Result<Schema, Box<dyn Error>> {
+    fn get_schema() -> anyhow::Result<Schema> {
         match VaultInterface::receive(Message::Schema)? {
             Output::Schema(schema) => Ok(schema),
-            _ => Err(Box::new(CommunicationError::UnexpectedOutput)),
+            _ => Err(Box::new(CommunicationError::UnexpectedOutput).into()),
         }
     }
 
-    fn get_password(prompt: &str) -> Result<Password, Box<dyn Error>> {
+    fn get_password(prompt: &str) -> anyhow::Result<Password> {
         let password = inquire::Password::new(prompt)
             .without_confirmation()
             .with_display_toggle_enabled()
@@ -186,7 +186,7 @@ impl CliArgs {
         Ok(password)
     }
 
-    fn get_password_confirm(prompt: &str) -> Result<Password, Box<dyn Error>> {
+    fn get_password_confirm(prompt: &str) -> anyhow::Result<Password> {
         let password = inquire::Password::new(prompt)
             .with_display_toggle_enabled()
             .with_display_mode(inquire::PasswordDisplayMode::Masked)

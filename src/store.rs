@@ -1,10 +1,59 @@
-use std::{error::Error, fmt::Display};
+use std::{collections::HashMap, fmt::Display, hash::Hash};
 
+use enum_iterator::{all, Sequence};
 use inquire::Confirm;
 use pants_gen::password::Password;
 use serde::{Deserialize, Serialize};
 
 use crate::errors::SchemaError;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence)]
+pub enum StoreChoice {
+    Password,
+    UsernamePassword,
+}
+
+impl Display for StoreChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StoreChoice::Password => write!(f, "Password"),
+            StoreChoice::UsernamePassword => write!(f, "Username/Password"),
+        }
+    }
+}
+
+impl Default for StoreChoice {
+    fn default() -> Self {
+        Self::UsernamePassword
+    }
+}
+
+impl StoreChoice {
+    pub fn convert(&self, data: &HashMap<String, String>) -> Option<Store> {
+        match self {
+            Self::Password => {
+                let p = data.get("password")?;
+                Some(Store::Password(p.to_string()))
+            }
+            Self::UsernamePassword => {
+                let p = data.get("password")?;
+                let u = data.get("username")?;
+                Some(Store::UsernamePassword(u.to_string(), p.to_string()))
+            }
+        }
+    }
+
+    pub fn convert_default(&self) -> Store {
+        match self {
+            Self::Password => Store::Password(String::new()),
+            Self::UsernamePassword => Store::UsernamePassword(String::new(), String::new()),
+        }
+    }
+
+    pub fn all() -> Vec<StoreChoice> {
+        all::<StoreChoice>().collect()
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum Store {
@@ -27,6 +76,22 @@ impl Store {
         match self {
             Self::Password(_) => "password".to_string(),
             Self::UsernamePassword(_, _) => "username-password".to_string(),
+        }
+    }
+
+    pub fn as_hash(&self) -> HashMap<String, String> {
+        match self {
+            Self::Password(p) => {
+                let mut map = HashMap::new();
+                map.insert("password".to_string(), p.to_string());
+                map
+            }
+            Self::UsernamePassword(u, p) => {
+                let mut map = HashMap::new();
+                map.insert("password".to_string(), p.to_string());
+                map.insert("username".to_string(), u.to_string());
+                map
+            }
         }
     }
 
@@ -61,7 +126,7 @@ impl Store {
     //     }
     // }
 
-    pub fn prompt(repr: &str) -> Result<Store, Box<dyn Error>> {
+    pub fn prompt(repr: &str) -> anyhow::Result<Store> {
         match repr {
             "password" => Self::get_password().map(Store::Password),
             "username-password" => {
@@ -72,11 +137,11 @@ impl Store {
                 let password = Self::get_password()?;
                 Ok(Store::UsernamePassword(username, password))
             }
-            _ => Err(Box::new(SchemaError::BadType)),
+            _ => Err(Box::new(SchemaError::BadType).into()),
         }
     }
 
-    fn get_password() -> Result<String, Box<dyn Error>> {
+    fn get_password() -> anyhow::Result<String> {
         let generate = Confirm::new("Generate password?")
             .with_default(true)
             .with_help_message("Create a random password or enter manually?")
@@ -133,10 +198,10 @@ impl Store {
                     .prompt();
                 match password_input {
                     Ok(p) => Ok(p),
-                    Err(_) => Err(Box::new(SchemaError::BadValues)),
+                    Err(_) => Err(Box::new(SchemaError::BadValues).into()),
                 }
             }
-            Err(_) => Err(Box::new(SchemaError::BadValues)),
+            Err(_) => Err(Box::new(SchemaError::BadValues).into()),
         }
     }
 }

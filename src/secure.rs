@@ -1,4 +1,4 @@
-use std::{error::Error, marker::PhantomData};
+use std::marker::PhantomData;
 
 use aes_gcm::{
     aead::{generic_array::GenericArray, Aead, OsRng},
@@ -29,7 +29,7 @@ impl<'de, Data: Deserialize<'de>> Decrypted<Data> {
 }
 
 impl<'de, Data: Serialize + Deserialize<'de>> Encrypted<Data> {
-    pub fn decrypt(&self, key: Key<Aes256Gcm>) -> Result<Decrypted<Data>, Box<dyn Error>> {
+    pub fn decrypt(&self, key: Key<Aes256Gcm>) -> Result<Decrypted<Data>, DecryptionError> {
         let cipher = Aes256Gcm::new(&key);
         let decrypt = cipher
             .decrypt(
@@ -43,7 +43,7 @@ impl<'de, Data: Serialize + Deserialize<'de>> Encrypted<Data> {
         })
     }
 
-    pub fn encrypt(data: &Data, key: Key<Aes256Gcm>) -> Result<Encrypted<Data>, Box<dyn Error>> {
+    pub fn encrypt(data: &Data, key: Key<Aes256Gcm>) -> anyhow::Result<Encrypted<Data>> {
         let cipher = Aes256Gcm::new(&key);
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         let encoded = bincode::serialize(data)?;
@@ -63,20 +63,18 @@ pub trait SecureData {
     fn salt(&self) -> &str;
     fn data(&self) -> &Encrypted<Self::Item>;
     // not much point in this function
-    fn encrypt<'de>(
-        data: &Self::Item,
-        key: Key<Aes256Gcm>,
-    ) -> Result<Encrypted<Self::Item>, Box<dyn Error>>
+    fn encrypt<'de>(data: &Self::Item, key: Key<Aes256Gcm>) -> anyhow::Result<Encrypted<Self::Item>>
     where
         Self::Item: Serialize + Deserialize<'de>,
     {
         Encrypted::encrypt(data, key)
     }
-    fn decrypt<'de>(&self, key: Key<Aes256Gcm>) -> Result<Decrypted<Self::Item>, Box<dyn Error>>
+    fn decrypt<'de>(&self, key: Key<Aes256Gcm>) -> anyhow::Result<Decrypted<Self::Item>>
     where
         Self::Item: Serialize + Deserialize<'de> + 'de,
     {
-        Encrypted::decrypt(self.data(), key)
+        let res = Encrypted::decrypt(self.data(), key)?;
+        Ok(res)
     }
     // not much point in this fuction
     //

@@ -1,10 +1,10 @@
-use std::{error::Error, fmt::Display, thread, time::Duration};
+use std::{fmt::Display, thread, time::Duration};
 
 use arboard::Clipboard;
 
 use crate::{file::BackupFile, reads::Reads, schema::Schema, store::Store};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Output {
     Schema(Schema),
     BackupFiles(Vec<BackupFile>),
@@ -33,7 +33,7 @@ impl From<()> for Output {
 }
 
 impl Output {
-    pub fn finish(&self) -> Result<(), Box<dyn Error>> {
+    pub fn finish(&self) -> anyhow::Result<()> {
         match self {
             Self::Read(reads) => {
                 if !reads.data.is_empty() {
