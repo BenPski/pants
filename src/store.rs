@@ -79,20 +79,28 @@ impl Store {
         }
     }
 
-    pub fn as_hash(&self) -> HashMap<String, String> {
+    pub fn split(&self) -> (StoreChoice, HashMap<String, String>) {
         match self {
             Self::Password(p) => {
                 let mut map = HashMap::new();
                 map.insert("password".to_string(), p.to_string());
-                map
+                (StoreChoice::Password, map)
             }
             Self::UsernamePassword(u, p) => {
                 let mut map = HashMap::new();
                 map.insert("password".to_string(), p.to_string());
                 map.insert("username".to_string(), u.to_string());
-                map
+                (StoreChoice::UsernamePassword, map)
             }
         }
+    }
+
+    pub fn choice(&self) -> StoreChoice {
+        self.split().0
+    }
+
+    pub fn as_hash(&self) -> HashMap<String, String> {
+        self.split().1
     }
 
     // // from schema type and field values

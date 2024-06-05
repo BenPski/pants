@@ -16,10 +16,11 @@ use iced::{
     widget::{button, column, container, pick_list, row, scrollable, text, text_input},
     Application, Command, Element, Length, Settings, Subscription, Theme,
 };
+use iced_aw::{modal, Card};
 use pants_gen::password::Password;
 use pants_store::{
     gui::connection,
-    message::Message,
+    message::{self, Message},
     output::Output,
     reads::Reads,
     schema::Schema,
@@ -30,20 +31,19 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 enum GUIMessage {
+    Exit,
+    Submit,
     EntryMessage(EntryMessage, String),
-    ExitEntry,
     ShowPassword,
     HidePassword,
     CopyPassword,
     ClearPassword,
     PasswordChanged(String),
-    PasswordSubmit,
     NewEntry,
     ChangeName(String),
     SelectStyle(StoreChoice),
     UpdateField(String, String),
     GeneratePassword,
-    NewCreate,
     Event(connection::Event),
     Send(Message),
 }
@@ -51,9 +51,10 @@ enum GUIMessage {
 struct VaultState {
     schema: Schema,
     entries: Vec<Entry>,
-    password_state: PasswordState,
-    entry_state: Option<EntryState>,
-    new_state: Option<NewEntryState>,
+    // password_state: PasswordState,
+    // entry_state: Option<EntryState>,
+    // new_state: Option<NewEntryState>,
+    internal_state: Vec<InternalState>,
     temp_message: TempMessage,
     state: ConnectionState,
 }
@@ -63,9 +64,10 @@ impl Default for VaultState {
         Self {
             schema: Schema::default(),
             entries: vec![],
-            password_state: PasswordState::default(),
-            entry_state: None,
-            new_state: None,
+            // password_state: PasswordState::default(),
+            // entry_state: None,
+            // new_state: None,
+            internal_state: Vec::new(),
             temp_message: TempMessage::default(),
             state: ConnectionState::Disconnected,
         }
@@ -89,6 +91,69 @@ impl VaultState {
             ..Default::default()
         }
     }
+    fn get_password(&self) -> Option<String> {
+        for state in &self.internal_state {
+            match state {
+                InternalState::PasswordState(p) => return Some(p.password.clone()),
+                _ => {}
+            }
+        }
+        None
+    }
+    fn handle_password_submit(&mut self, password: String) {
+        let messages = match &self.temp_message {
+            TempMessage::Get(key) => {
+                let message = self.temp_message.with_password(password);
+                self.internal_state.push(
+                    EntryState::from_entry(
+                        key.to_string(),
+                        self.schema.get(&key).unwrap().to_string(),
+                    )
+                    .into(),
+                );
+                self.temp_message = TempMessage::Update(
+                    key.to_string(),
+                    StoreChoice::default(),
+                    StoreChoice::default().convert_default().as_hash(),
+                );
+                vec![message]
+            }
+            TempMessage::Delete(_) => {
+                let message = self.temp_message.with_password(password);
+                self.internal_state = vec![];
+                self.temp_message = TempMessage::default();
+                vec![message, Message::Schema]
+            }
+            TempMessage::New(_, _, _) => {
+                let message = self.temp_message.with_password(password);
+                self.internal_state = vec![];
+                self.temp_message = TempMessage::default();
+                vec![message, Message::Schema]
+            }
+            TempMessage::Update(_, _, _) => {
+                let message = self.temp_message.with_password(password);
+                self.internal_state = vec![];
+                self.temp_message = TempMessage::default();
+                vec![message, Message::Schema]
+            }
+            TempMessage::Empty => {
+                self.internal_state = vec![];
+                self.temp_message = TempMessage::default();
+                vec![]
+            }
+        };
+        self.send_message(messages);
+    }
+    fn active_state(&self) -> Option<&InternalState> {
+        self.internal_state.last()
+    }
+    fn active_state_mut(&mut self) -> Option<&mut InternalState> {
+        self.internal_state.last_mut()
+    }
+    // fn reset(&mut self) {
+    //     self.temp_message = TempMessage::default();
+    //     self.entry_state = None;
+    // }
     fn needs_password(&self) -> bool {
         self.temp_message.needs_password()
     }
@@ -102,10 +167,24 @@ impl VaultState {
         self.entries = entries;
     }
     fn update_entry(&mut self, data: Reads<Store>) {
-        if let Some(ref mut entry) = &mut self.entry_state {
+        // TODO: check if robust, could be that a response was given to a lower down state, but I
+        // find it unlikely it will get to be that way
+        if let Some(InternalState::EntryState(entry)) = self.active_state_mut() {
+            for (key, value) in &data.data {
+                if *key == entry.key {
+                    entry.update(value.clone());
+                }
+            }
+        }
+        // seems dumb to loop twice
+        if let TempMessage::Update(update_key, ref mut choice, ref mut update_value) =
+            &mut self.temp_message
+        {
             for (key, value) in data.data {
-                if key == entry.key {
-                    entry.update(value);
+                if *update_key == key {
+                    let (new_choice, new_values) = value.split();
+                    *choice = new_choice;
+                    *update_value = new_values;
                 }
             }
         }
@@ -121,46 +200,29 @@ impl VaultState {
         }
     }
     fn view(&self) -> Element<GUIMessage> {
-        if self.password_state.is_active() {
-            let header = text("Vault password:").size(20);
-            let password_input = text_input(
-                "vault password",
-                &self
-                    .password_state
-                    .password
-                    .clone()
-                    .unwrap_or("".to_string()),
-            )
-            .on_input(GUIMessage::PasswordChanged)
-            .on_submit(GUIMessage::PasswordSubmit)
-            .width(Length::Fill)
-            .secure(true);
-            let info = self.temp_message.view();
-            container(column![header, password_input, info]).into()
-        } else if let Some(new_entry) = &self.new_state {
-            new_entry.view()
-        } else if let Some(entry) = &self.entry_state {
-            entry.view()
-            // let header = text(entry.key).size(50);
-            // container(header).into()
-        } else {
-            let header = text("Entries")
-                .size(20)
-                .horizontal_alignment(alignment::Horizontal::Center);
-            let content = scrollable(column(self.entries.iter().map(|e| {
-                e.view()
-                    .map(move |message| GUIMessage::EntryMessage(message, e.key.clone()))
-            })));
-            let new_button = button(
-                text("+")
-                    .horizontal_alignment(alignment::Horizontal::Center)
-                    .width(Length::Fill),
-            )
-            .width(Length::Fill)
-            .on_press(GUIMessage::NewEntry);
-            let info = self.temp_message.view();
-            container(column![header, content, new_button, info]).into()
-        }
+        let top_layer = self.internal_state.last().map(|state| state.view());
+
+        let header = text("Entries")
+            .size(20)
+            .horizontal_alignment(alignment::Horizontal::Center);
+        let content = scrollable(column(self.entries.iter().map(|e| {
+            e.view()
+                .map(move |message| GUIMessage::EntryMessage(message, e.key.clone()))
+        })));
+        let new_button = button(
+            text("+")
+                .horizontal_alignment(alignment::Horizontal::Center)
+                .width(Length::Fill),
+        )
+        .width(Length::Fill)
+        .on_press(GUIMessage::NewEntry);
+        let info = self.temp_message.view();
+        let primary = container(column![header, content, new_button, info]);
+        modal(primary, top_layer)
+            .backdrop(GUIMessage::Exit)
+            .on_esc(GUIMessage::Exit)
+            .align_y(alignment::Vertical::Center)
+            .into()
     }
 }
 
@@ -175,6 +237,7 @@ enum TempMessage {
     Delete(String),
     Get(String),
     New(String, StoreChoice, HashMap<String, String>),
+    Update(String, StoreChoice, HashMap<String, String>),
 }
 
 impl TempMessage {
@@ -184,6 +247,7 @@ impl TempMessage {
             Self::Delete(_) => true,
             Self::Get(_) => true,
             Self::New(_, _, _) => true,
+            Self::Update(_, _, _) => true,
         }
     }
 
@@ -191,6 +255,16 @@ impl TempMessage {
         match self {
             Self::Empty => true,
             Self::New(name, _, fields) => {
+                let mut filled = true;
+                for (_, value) in fields.iter() {
+                    if value.is_empty() {
+                        filled = false;
+                        break;
+                    }
+                }
+                !name.is_empty() && filled
+            }
+            Self::Update(name, _, fields) => {
                 let mut filled = true;
                 for (_, value) in fields.iter() {
                     if value.is_empty() {
@@ -220,6 +294,9 @@ impl TempMessage {
             Self::New(key, choice, value) => {
                 Message::Update(password, key.clone(), choice.convert(value).unwrap())
             }
+            Self::Update(key, choice, value) => {
+                Message::Update(password, key.clone(), choice.convert(value).unwrap())
+            }
             Self::Empty => Message::Schema,
         }
     }
@@ -236,6 +313,10 @@ impl TempMessage {
             }
             TempMessage::New(key, _, _) => {
                 let info = text(format!("Working on a new entry {}", key));
+                container(info).into()
+            }
+            TempMessage::Update(key, _, _) => {
+                let info = text(format!("Working on updating entry {}", key));
                 container(info).into()
             }
             Self::Empty => {
@@ -265,6 +346,7 @@ impl Default for NewEntryState {
 
 impl NewEntryState {
     fn view(&self) -> Element<GUIMessage> {
+        let header = text("New entry");
         let name_prefix = text("Name:");
         let name_input = text_input("Name", &self.name).on_input(GUIMessage::ChangeName);
         let style_choice = pick_list(
@@ -299,14 +381,18 @@ impl NewEntryState {
                 ])
             }
         };
-        let create_button = button("Create").on_press(GUIMessage::NewCreate);
-        let cancel_button = button("Cancel");
-        container(column![
-            row![name_prefix, name_input],
-            style_choice,
-            data_input,
-            row![create_button, cancel_button]
-        ])
+        let create_button = button("Create").on_press(GUIMessage::Submit);
+        let cancel_button = button("Cancel").on_press(GUIMessage::Exit);
+        Card::new(
+            header,
+            container(column![
+                row![name_prefix, name_input],
+                style_choice,
+                data_input,
+                row![create_button, cancel_button]
+            ]),
+        )
+        .max_width(500.0)
         .into()
     }
 }
@@ -314,18 +400,20 @@ impl NewEntryState {
 #[derive(Debug, Clone)]
 struct EntryState {
     key: String,
-    value: Store,
+    choice: StoreChoice,
+    value: HashMap<String, String>,
     hidden: bool,
 }
 
 impl EntryState {
     fn view(&self) -> Element<GUIMessage> {
-        let header = text(self.key.clone()).size(20);
-        let content = match &self.value {
-            Store::Password(p) => {
+        let header = text(self.key.clone());
+        let data_input = match &self.choice {
+            StoreChoice::Password => {
                 let prefix = text("Password:");
-                let password_input = text_input("Password", &p)
+                let password_input = text_input("Password", &self.value.get("password").unwrap())
                     .width(Length::Fill)
+                    .on_input(|v| GUIMessage::UpdateField("password".to_string(), v))
                     .secure(self.hidden);
                 let show_button = if self.hidden {
                     button("Show").on_press(GUIMessage::ShowPassword)
@@ -333,14 +421,24 @@ impl EntryState {
                     button("Hide").on_press(GUIMessage::HidePassword)
                 };
                 let copy_button = button("Copy").on_press(GUIMessage::CopyPassword);
-                container(row![prefix, password_input, copy_button, show_button])
+                let password_generate = button("Generate").on_press(GUIMessage::GeneratePassword);
+                container(row![
+                    prefix,
+                    password_input,
+                    password_generate,
+                    copy_button,
+                    show_button
+                ])
             }
-            Store::UsernamePassword(username, password) => {
+            StoreChoice::UsernamePassword => {
                 let username_prefix = text("Username:");
                 let password_prefix = text("Password:");
-                let username_input = text_input("Username", &username).width(Length::Fill);
-                let password_input = text_input("Password", &password)
+                let username_input = text_input("Username", &self.value.get("username").unwrap())
                     .width(Length::Fill)
+                    .on_input(|v| GUIMessage::UpdateField("username".to_string(), v));
+                let password_input = text_input("Password", &self.value.get("password").unwrap())
+                    .width(Length::Fill)
+                    .on_input(|v| GUIMessage::UpdateField("password".to_string(), v))
                     .secure(self.hidden);
                 let show_button = if self.hidden {
                     button("Show").on_press(GUIMessage::ShowPassword)
@@ -348,26 +446,43 @@ impl EntryState {
                     button("Hide").on_press(GUIMessage::HidePassword)
                 };
                 let copy_button = button("Copy").on_press(GUIMessage::CopyPassword);
+                let password_generate = button("Generate").on_press(GUIMessage::GeneratePassword);
                 container(column![
                     row![username_prefix, username_input],
-                    row![password_prefix, password_input, copy_button, show_button]
+                    row![
+                        password_prefix,
+                        password_input,
+                        password_generate,
+                        copy_button,
+                        show_button
+                    ]
                 ])
             }
         };
-        let done_button = button("Done").on_press(GUIMessage::ExitEntry);
 
-        container(column![header, content, done_button]).into()
+        let save_button = button("Save").on_press(GUIMessage::Submit);
+        let done_button = button("Done").on_press(GUIMessage::Exit);
+        Card::new(
+            header,
+            container(column![data_input, save_button, done_button]),
+        )
+        .max_width(500.0)
+        .into()
     }
 
     fn update(&mut self, value: Store) {
+        let (choice, value) = value.split();
+        self.choice = choice;
         self.value = value;
     }
 
     fn get_password(&self) -> Option<String> {
-        match &self.value {
-            Store::Password(p) => Some(p.to_string()),
-            Store::UsernamePassword(_, p) => Some(p.to_string()),
+        for (key, value) in self.value.iter() {
+            if key == "password" {
+                return Some(value.to_string());
+            }
         }
+        None
     }
 
     fn from_entry(key: String, style: String) -> Self {
@@ -376,8 +491,10 @@ impl EntryState {
             "username-password" => Store::UsernamePassword(String::new(), String::new()),
             _ => todo!(),
         };
+        let (choice, value) = value.split();
         EntryState {
             key,
+            choice,
             value,
             hidden: true,
         }
@@ -386,34 +503,64 @@ impl EntryState {
 
 #[derive(Debug, Clone)]
 struct PasswordState {
-    prompt: bool,
-    password: Option<String>,
+    password: String,
 }
 
 impl Default for PasswordState {
     fn default() -> Self {
         Self {
-            prompt: false,
-            password: None,
+            password: String::new(),
         }
     }
 }
 
 impl PasswordState {
-    fn set_password(&mut self, password: String) {
-        self.password = Some(password);
+    fn view(&self) -> Element<GUIMessage> {
+        let header = text("Vault password");
+        let password_input = text_input("vault password", &self.password.clone())
+            .on_input(GUIMessage::PasswordChanged)
+            .on_submit(GUIMessage::Submit)
+            .width(Length::Fill)
+            .secure(true);
+        let cancel = button("Cancel").on_press(GUIMessage::Exit);
+        Card::new(header, container(column![password_input, cancel]))
+            .max_width(500.0)
+            .into()
     }
-    fn activate(&mut self) {
-        self.prompt = true;
+}
+
+#[derive(Debug)]
+enum InternalState {
+    PasswordState(PasswordState),
+    EntryState(EntryState),
+    NewState(NewEntryState),
+}
+
+impl From<PasswordState> for InternalState {
+    fn from(value: PasswordState) -> Self {
+        InternalState::PasswordState(value)
     }
-    fn deactivate(&mut self) {
-        self.prompt = false;
+}
+
+impl From<EntryState> for InternalState {
+    fn from(value: EntryState) -> Self {
+        InternalState::EntryState(value)
     }
-    fn is_active(&self) -> bool {
-        self.prompt
+}
+
+impl From<NewEntryState> for InternalState {
+    fn from(value: NewEntryState) -> Self {
+        InternalState::NewState(value)
     }
-    fn clear(&mut self) {
-        self.password = None;
+}
+
+impl InternalState {
+    fn view(&self) -> Element<GUIMessage> {
+        match self {
+            Self::PasswordState(password_state) => password_state.view(),
+            Self::NewState(new_state) => new_state.view(),
+            Self::EntryState(entry_state) => entry_state.view(),
+        }
     }
 }
 
@@ -497,27 +644,28 @@ impl Application for VaultState {
             GUIMessage::EntryMessage(EntryMessage::Delete, key) => {
                 self.temp_message = TempMessage::Delete(key);
                 if self.needs_password() {
-                    self.password_state.activate();
+                    self.internal_state.push(PasswordState::default().into());
                 }
             }
             GUIMessage::EntryMessage(EntryMessage::View, key) => {
                 self.temp_message = TempMessage::Get(key.clone());
-                self.entry_state = Some(EntryState::from_entry(
-                    key.to_string(),
-                    self.schema.get(&key).unwrap().to_string(),
-                ));
+
                 if self.needs_password() {
-                    self.password_state.activate();
+                    self.internal_state.push(PasswordState::default().into());
                 }
             }
             GUIMessage::PasswordChanged(p) => {
-                self.password_state.password = Some(p);
+                if let Some(InternalState::PasswordState(password_state)) = self.active_state_mut()
+                {
+                    password_state.password = p;
+                }
             }
-            GUIMessage::ClearPassword => {
-                self.password_state.clear();
-            }
+            // GUIMessage::ClearPassword => {
+            //
+            //     self.password_state.clear();
+            // }
             GUIMessage::ChangeName(n) => {
-                if let Some(ref mut new_state) = &mut self.new_state {
+                if let Some(InternalState::NewState(new_state)) = self.active_state_mut() {
                     new_state.name = n.clone();
                 }
                 if let TempMessage::New(ref mut key, _, _) = &mut self.temp_message {
@@ -525,7 +673,7 @@ impl Application for VaultState {
                 }
             }
             GUIMessage::SelectStyle(choice) => {
-                if let Some(ref mut new_state) = &mut self.new_state {
+                if let Some(InternalState::NewState(new_state)) = self.active_state_mut() {
                     new_state.choice = choice;
                     new_state.value = choice.convert_default().as_hash();
                 }
@@ -535,79 +683,130 @@ impl Application for VaultState {
                 }
             }
             GUIMessage::UpdateField(k, v) => {
-                if let Some(ref mut new_state) = &mut self.new_state {
-                    new_state.value.insert(k.clone(), v.clone());
-                }
-                if let TempMessage::New(_, _, ref mut value) = &mut self.temp_message {
-                    value.insert(k, v);
-                }
+                match self.active_state_mut() {
+                    Some(InternalState::NewState(new_state)) => {
+                        new_state.value.insert(k.clone(), v.clone());
+                    }
+                    Some(InternalState::EntryState(entry_state)) => {
+                        entry_state.value.insert(k.clone(), v.clone());
+                    }
+                    _ => {}
+                };
+                match &mut self.temp_message {
+                    TempMessage::New(_, _, ref mut value) => {
+                        value.insert(k, v);
+                    }
+                    TempMessage::Update(_, _, ref mut value) => {
+                        value.insert(k, v);
+                    }
+                    _ => {}
+                };
             }
             GUIMessage::GeneratePassword => {
                 let password = Password::default().generate().unwrap();
-                if let Some(ref mut new_state) = &mut self.new_state {
-                    new_state
-                        .value
-                        .insert("password".to_string(), password.clone());
-                }
-                if let TempMessage::New(_, _, ref mut value) = &mut self.temp_message {
-                    value.insert("password".to_string(), password);
-                }
-            }
-            GUIMessage::NewCreate => {
-                if let Some(new_state) = &self.new_state {
-                    if !self.schema.data.contains_key(&new_state.name)
-                        && self.temp_message.complete()
-                    {
-                        self.password_state.activate();
-                        self.new_state = None;
+                match self.active_state_mut() {
+                    Some(InternalState::NewState(new_state)) => {
+                        new_state
+                            .value
+                            .insert("password".to_string(), password.clone());
                     }
-                }
+                    Some(InternalState::EntryState(entry_state)) => {
+                        entry_state
+                            .value
+                            .insert("password".to_string(), password.clone());
+                    }
+                    _ => {}
+                };
+                match &mut self.temp_message {
+                    TempMessage::New(_, _, ref mut value) => {
+                        value.insert("password".to_string(), password);
+                    }
+                    TempMessage::Update(_, _, ref mut value) => {
+                        value.insert("password".to_string(), password);
+                    }
+                    _ => {}
+                };
             }
+
             GUIMessage::NewEntry => {
                 self.temp_message = TempMessage::New(
                     String::new(),
                     StoreChoice::default(),
                     StoreChoice::default().convert_default().as_hash(),
                 );
-                self.new_state = Some(NewEntryState::default());
+                self.internal_state.push(NewEntryState::default().into());
             }
-            GUIMessage::PasswordSubmit => {
-                let mut deactivate = false;
-                let mut messages = vec![];
-                let mut command = Command::none();
-                if let Some(password) = &self.password_state.password {
-                    deactivate = true;
-                    let message = self.temp_message.with_password(password.to_string());
-                    messages.push(message);
-                    messages.push(Message::Schema);
-                    command = self.temp_message.final_command();
+            GUIMessage::Submit => {
+                if let Some(active_state) = self.active_state() {
+                    match active_state {
+                        InternalState::PasswordState(password_state) => {
+                            self.handle_password_submit(password_state.password.clone());
+                        }
+                        InternalState::NewState(new_state) => {
+                            if !self.schema.data.contains_key(&new_state.name)
+                                && self.temp_message.complete()
+                            {
+                                self.internal_state.push(PasswordState::default().into());
+                            }
+                        }
+                        InternalState::EntryState(entry_state) => {
+                            if self.schema.data.contains_key(&entry_state.key)
+                                && self.temp_message.complete()
+                            {
+                                if let Some(password) = self.get_password() {
+                                    let message = self.temp_message.with_password(password);
+                                    self.send_message(vec![message]);
+                                    self.temp_message = TempMessage::default();
+                                    self.internal_state = vec![];
+                                } else {
+                                    self.internal_state.push(PasswordState::default().into());
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
                 }
-                if deactivate {
-                    self.password_state.deactivate();
-                    self.temp_message = TempMessage::default();
+            }
+            GUIMessage::Exit => {
+                if let Some(active_state) = self.active_state() {
+                    match active_state {
+                        InternalState::PasswordState(password_state) => {
+                            match self.temp_message {
+                                TempMessage::Delete(_) => {
+                                    self.temp_message = TempMessage::default();
+                                }
+                                TempMessage::Get(_) => {
+                                    self.temp_message = TempMessage::default();
+                                }
+                                _ => {}
+                            }
+                            self.internal_state.pop();
+                        }
+                        InternalState::EntryState(entry_state) => {
+                            self.temp_message = TempMessage::default();
+                            self.internal_state = vec![];
+                        }
+                        InternalState::NewState(new_state) => {
+                            self.temp_message = TempMessage::default();
+                            self.internal_state = vec![];
+                        }
+                    }
                 }
-
-                self.send_message(messages);
-
-                return command;
             }
-            GUIMessage::ExitEntry => {
-                self.entry_state = None;
-                return clear_password_command();
-            }
+
             GUIMessage::ShowPassword => {
-                if let Some(ref mut entry) = &mut self.entry_state {
-                    entry.hidden = false;
+                if let Some(InternalState::EntryState(entry_state)) = self.active_state_mut() {
+                    entry_state.hidden = false;
                 }
             }
             GUIMessage::HidePassword => {
-                if let Some(ref mut entry) = &mut self.entry_state {
-                    entry.hidden = true;
+                if let Some(InternalState::EntryState(entry_state)) = self.active_state_mut() {
+                    entry_state.hidden = true;
                 }
             }
             GUIMessage::CopyPassword => {
-                if let Some(ref entry) = &self.entry_state {
-                    if let Some(p) = entry.get_password() {
+                if let Some(InternalState::EntryState(entry_state)) = self.active_state_mut() {
+                    if let Some(p) = entry_state.get_password() {
                         return iced::clipboard::write(p);
                     }
                 }
