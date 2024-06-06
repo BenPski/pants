@@ -267,7 +267,7 @@ impl Application for VaultState {
 
             GUIMessage::ChangeName(n) => {
                 if let Some(InternalState::New(new_state)) = self.active_state_mut() {
-                    new_state.name = n.clone();
+                    new_state.name.clone_from(&n);
                 }
                 if let TempMessage::New(ref mut key, _, _) = &mut self.temp_message {
                     *key = n;
