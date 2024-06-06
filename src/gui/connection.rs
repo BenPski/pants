@@ -71,12 +71,9 @@ pub fn connect() -> Subscription<Event> {
 
                         let response = VaultInterface::receive(input);
 
-                        match response {
-                            Ok(vault_output) => {
-                                let event = vault_output.into();
-                                let _ = output.send(event).await;
-                            }
-                            _ => {}
+                        if let Ok(vault_output) = response {
+                            let event = vault_output.into();
+                            let _ = output.send(event).await;
                         }
                     }
                 }
