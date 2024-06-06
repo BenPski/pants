@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Reads<T> {
     pub data: HashMap<String, T>,
 }

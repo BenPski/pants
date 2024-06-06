@@ -1,5 +1,4 @@
 use std::{
-    error::Error,
     fmt::Display,
     fs::{self, File},
     io::{Read, Write},
@@ -34,7 +33,7 @@ where
     }
 
     fn path(&self) -> PathBuf;
-    fn create(&self) -> Result<File, Box<dyn Error>> {
+    fn create(&self) -> anyhow::Result<File> {
         let path = self.path();
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
@@ -44,12 +43,12 @@ where
         Ok(file)
     }
 
-    fn delete(&self) -> Result<(), Box<dyn Error>> {
+    fn delete(&self) -> anyhow::Result<()> {
         let path = self.path();
         Ok(fs::remove_file(path)?)
     }
 
-    fn open(&self) -> Result<File, Box<dyn Error>> {
+    fn open(&self) -> anyhow::Result<File> {
         let path = self.path();
         let file = File::open(path)?;
         Ok(file)
@@ -58,7 +57,7 @@ where
     // also making all the trait inheritance work with blanket implementations was
     // too much of a headache, all of which just seemed better to copy and paste the
     // implementations
-    fn write(&mut self, data: &Data) -> Result<(), Box<dyn Error>> {
+    fn write(&mut self, data: &Data) -> anyhow::Result<()> {
         let mut file = self.create()?;
         let output = serde_json::to_string(data)?;
         file.write_all(output.as_ref())
@@ -67,7 +66,7 @@ where
         Ok(())
     }
 
-    fn read(&self) -> Result<ReadIn<Data>, Box<dyn Error>> {
+    fn read(&self) -> anyhow::Result<ReadIn<Data>> {
         let mut file = self.open()?;
         let mut content = String::new();
         file.read_to_string(&mut content)?;
