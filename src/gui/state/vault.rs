@@ -217,7 +217,7 @@ fn delayed_command(
     Command::perform(
         async move {
             let _ = async_std::task::sleep(std::time::Duration::from_secs(time)).await;
-            ()
+            
         },
         callback,
     )
@@ -442,7 +442,7 @@ impl Application for VaultState {
             }
             GUIMessage::CopyClipboard(data) => self.stored_clipboard = data,
             GUIMessage::ClearClipboard => {
-                let contents = self.stored_clipboard.clone().unwrap_or(String::new());
+                let contents = self.stored_clipboard.clone().unwrap_or_default();
                 self.stored_clipboard = None;
                 return iced::clipboard::write(contents);
             }
