@@ -17,7 +17,7 @@ use iced::{
     Application, Command, Element, Length, Subscription, Theme,
 };
 use iced_aw::modal;
-use pants_gen::password::Password;
+use pants_gen::password::PasswordSpec;
 
 pub struct VaultState {
     schema: Schema,
@@ -304,7 +304,7 @@ impl Application for VaultState {
                 };
             }
             GUIMessage::GeneratePassword => {
-                let password = Password::default().generate().unwrap();
+                let password = PasswordSpec::default().generate().unwrap();
                 match self.active_state_mut() {
                     Some(InternalState::New(new_state)) => {
                         new_state

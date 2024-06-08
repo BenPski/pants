@@ -39,3 +39,9 @@ pub enum CommunicationError {
     #[error("Expected no existing entry, but an entry exists")]
     ExistingEntry,
 }
+
+#[derive(Debug, Error)]
+pub enum ClientError {
+    #[error("Contraints for the password spec could not be met")]
+    BadPasswordSpec,
+}

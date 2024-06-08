@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/BenPski/pants"
 readme = "README.md"
 exclude = [".github", "scripts"]
-rust-version = "1.63.0"
+rust-version = "1.70.0"
 keywords = ["passwords"]
 categories = ["command-line-utilities", "cryptography"]
 default-run = "pants"
@@ -34,6 +34,7 @@ clap = { version = "4.5.4", features = ["derive"] }
 directories-next = "2.0.0"
 enum-iterator = "2.1.0"
 features = "0.10.0"
+figment = { version = "0.10.19", features = ["toml", "env"] }
 glob = "0.3.1"
 iced = "0.12.1"
 iced_aw = "0.9.3"

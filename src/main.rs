@@ -1,7 +1,7 @@
-use pants_store::cli::CliArgs;
+use pants_store::cli::CliApp;
 
 fn main() {
-    CliArgs::run()
+    CliApp::run()
 }
 
 // fn main() {
