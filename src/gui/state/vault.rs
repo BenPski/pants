@@ -217,7 +217,6 @@ fn delayed_command(
     Command::perform(
         async move {
             let _ = async_std::task::sleep(std::time::Duration::from_secs(time)).await;
-            
         },
         callback,
     )

@@ -17,9 +17,6 @@ use crate::{
     vault::encrypted::{RecordEncrypted, VaultEncrypted},
 };
 
-// TODO: create encrypted files that need to be given a password/key to open
-// applies to the vault, vault backup, and record files
-
 pub trait ProjectFile<'de, Data>
 where
     Data: Serialize + Deserialize<'de>,

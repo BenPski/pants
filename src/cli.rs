@@ -1,3 +1,4 @@
+use core::panic;
 use std::{process::exit, str::FromStr, thread, time::Duration};
 
 use arboard::Clipboard;
@@ -260,8 +261,7 @@ impl CliApp {
                 }
             },
             CLICommands::List => Ok(Message::Schema),
-
-            _ => todo!(),
+            CLICommands::Gen(_) => panic!("Should have branched before this"),
         }
     }
 
