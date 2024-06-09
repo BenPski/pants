@@ -1,12 +1,14 @@
+use core::panic;
 use std::{cell::RefCell, rc::Rc};
 
 use aes_gcm::{Aes256Gcm, Key};
+use anyhow::Ok;
 use argon2::password_hash::SaltString;
 use rand::rngs::OsRng;
 
 use crate::{
     command::{Command, Commands},
-    file::{BackupFile, ProjectFile, RecordFile, SchemaFile, VaultFile},
+    file::{BackupFile, ProjectFile, RecordFile, SaveDir, SchemaFile, VaultFile},
     message::Message,
     output::Output,
     reads::Reads,
@@ -17,49 +19,77 @@ use crate::{
 };
 
 use super::{
+    config::Config,
     encrypted::{RecordEncrypted, VaultEncrypted},
     Vault,
 };
 
 pub struct VaultInterface {
+    config: Config,
+}
+
+impl VaultInterface {
+    pub fn new() -> Self {
+        let config: Config = Config::figment().extract().unwrap();
+        Self { config }
+    }
+    pub fn receive(&self, message: Message) -> anyhow::Result<Output> {
+        match message {
+            Message::Schema => Ok(self.get_schema().into()),
+            Message::BackupList => Ok(self.config.save_dir().backup_file_all().into()),
+            _ => VaultHandler::receive(message, self.config.save_dir()),
+        }
+    }
+
+    fn get_schema(&self) -> Schema {
+        let schema_file: SchemaFile = self.config.save_dir().schema_file();
+        schema_file
+            .read()
+            .map(|data| data.deserialize())
+            .unwrap_or(Schema::default())
+    }
+}
+
+pub struct VaultHandler {
     vault: Vault,
     vault_encrypted: VaultEncrypted,
     key: Key<Aes256Gcm>,
     // schema: Schema,
     record: RecordEncrypted,
+    save_dir: SaveDir,
     schema_file: Rc<RefCell<SchemaFile>>,
     vault_file: Rc<RefCell<VaultFile>>,
     record_file: Rc<RefCell<RecordFile>>,
 }
 
-impl VaultInterface {
-    pub fn receive(message: Message) -> anyhow::Result<Output> {
+impl VaultHandler {
+    pub fn receive(message: Message, save_dir: SaveDir) -> anyhow::Result<Output> {
         match message {
             Message::Get(password, key) => {
                 let command = Command::Read { key };
-                let mut interface = Self::load_interface(password)?;
+                let mut interface = Self::load_interface(password, save_dir)?;
                 let reads = interface.transaction(command.into())?;
                 Ok(reads.into())
             }
             Message::Update(password, key, value) => {
                 let command = Command::Update { key, value };
-                let mut interface = Self::load_interface(password)?;
+                let mut interface = Self::load_interface(password, save_dir)?;
                 let reads = interface.transaction(command.into())?;
                 Ok(reads.into())
             }
             Message::Delete(password, key) => {
                 let command = Command::Delete { key };
-                let mut interface = Self::load_interface(password)?;
+                let mut interface = Self::load_interface(password, save_dir)?;
                 let _reads = interface.transaction(command.into())?;
                 Ok(().into())
             }
             Message::Backup(password) => {
-                let interface = Self::load_interface(password)?;
+                let interface = Self::load_interface(password, save_dir)?;
                 let backup = interface.backup()?;
                 Ok(Output::Backup(backup))
             }
             Message::Rotate(password, new_password) => {
-                let mut interface = Self::load_interface(password)?;
+                let mut interface = Self::load_interface(password, save_dir)?;
                 let backup = interface.backup()?;
                 let new_vault = VaultEncrypted::new(new_password.clone())?;
                 let key = new_vault.key(new_password);
@@ -73,7 +103,7 @@ impl VaultInterface {
                 let backup_key = backup_vault_enc.key(backup_password);
                 let _backup_vault = backup_vault_enc.decrypt(backup_key)?.deserialize();
 
-                let mut interface = Self::load_interface(password)?;
+                let mut interface = Self::load_interface(password, save_dir)?;
 
                 // have proved that the user knows the backup's and current vault's password and
                 // the decryption of both, so make a backup of the current vault and then copy in
@@ -85,35 +115,20 @@ impl VaultInterface {
                 interface.save()?;
                 Ok(Output::Backup(new_backup))
             }
-            Message::Schema => {
-                let schema = VaultInterface::get_schema();
-                Ok(Output::Schema(schema))
-            }
-            Message::BackupList => {
-                let files = BackupFile::all();
-                Ok(Output::BackupFiles(files))
-            }
+            _ => panic!("Should have been caught by handler"),
         }
     }
 
-    fn get_schema() -> Schema {
-        if let Ok(data) = SchemaFile::default().read() {
-            data.deserialize()
-        } else {
-            Schema::default()
-        }
-    }
-
-    fn load_interface(password: Password) -> anyhow::Result<VaultInterface> {
-        let mut interface = Self::get_interface(password)?;
+    fn load_interface(password: Password, save_dir: SaveDir) -> anyhow::Result<Self> {
+        let mut interface = Self::get_interface(password, save_dir)?;
         interface.check_unfinished()?;
         Ok(interface)
     }
 
-    fn get_interface(password: Password) -> anyhow::Result<Self> {
-        let vault_file = VaultFile::default();
-        let record_file = RecordFile::default();
-        let schema_file = SchemaFile::default();
+    fn get_interface(password: Password, save_dir: SaveDir) -> anyhow::Result<Self> {
+        let vault_file = save_dir.vault_file();
+        let record_file = save_dir.record_file();
+        let schema_file = save_dir.schema_file();
         // let schema = Self::get_schema();
         let record = RecordEncrypted::new(password.clone())?;
         let (vault, key, vault_encrypted) = if vault_file.exists() {
@@ -135,6 +150,7 @@ impl VaultInterface {
             key,
             // schema,
             record,
+            save_dir,
             vault_file: Rc::new(RefCell::new(vault_file)),
             record_file: Rc::new(RefCell::new(record_file)),
             schema_file: Rc::new(RefCell::new(schema_file)),
@@ -142,7 +158,7 @@ impl VaultInterface {
     }
 
     fn check_unfinished(&mut self) -> anyhow::Result<()> {
-        if let Some(file) = RecordFile::last() {
+        if let Some(file) = self.save_dir.record_file_latest() {
             self.apply_unfinished(file)?
         }
 
@@ -169,7 +185,7 @@ impl VaultInterface {
     }
 
     fn backup(&self) -> anyhow::Result<BackupFile> {
-        let mut backup_file = BackupFile::default();
+        let mut backup_file = self.save_dir.backup_file();
         let backup = VaultEncrypted {
             salt: self.vault_encrypted.salt.clone(),
             data: Encrypted::encrypt(&self.vault, self.key)?,

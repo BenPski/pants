@@ -92,13 +92,19 @@ pub enum BackupCommand {
 pub struct CliApp {
     args: CliArgs,
     config: ClientConfig,
+    interface: VaultInterface,
 }
 
 impl CliApp {
     pub fn run() {
         let args = CliArgs::parse();
         let config: ClientConfig = ClientConfig::figment().extract().unwrap();
-        let app = CliApp { args, config };
+        let interface = VaultInterface::new();
+        let app = CliApp {
+            args,
+            config,
+            interface,
+        };
         app.execute()
     }
 
@@ -122,7 +128,7 @@ impl CliApp {
     }
     fn process(&self, command: &CLICommands) -> anyhow::Result<()> {
         let message = self.construct_message(command)?;
-        let output = VaultInterface::receive(message)?;
+        let output = self.interface.receive(message)?;
         self.handle_output(output)
     }
     fn handle_output(&self, output: Output) -> anyhow::Result<()> {
@@ -202,7 +208,7 @@ impl CliApp {
                 Ok(Message::Get(password, key.to_string()))
             }
             CLICommands::Update { key, spec } => {
-                let schema = Self::get_schema()?;
+                let schema = self.get_schema()?;
                 match schema.get(key) {
                     None => Err(Box::new(CommunicationError::NoEntry).into()),
                     Some(style) => {
@@ -222,7 +228,7 @@ impl CliApp {
                 Ok(Message::Delete(password, key.to_string()))
             }
             CLICommands::New { style, spec } => {
-                let schema = Self::get_schema()?;
+                let schema = self.get_schema()?;
                 let spec = PasswordSpec::from_str(
                     &spec.clone().unwrap_or(self.config.password_spec.clone()),
                 )?;
@@ -247,7 +253,7 @@ impl CliApp {
                 }
                 Some(BackupCommand::List) => Ok(Message::BackupList),
                 Some(BackupCommand::Restore) => {
-                    match VaultInterface::receive(Message::BackupList)? {
+                    match self.interface.receive(Message::BackupList)? {
                         Output::BackupFiles(files) => {
                             let backup_file = inquire::Select::new("Restore from:", files)
                                 .with_help_message("Choose the backup file to restore from")
@@ -282,8 +288,8 @@ impl CliApp {
         }
     }
 
-    fn get_schema() -> anyhow::Result<Schema> {
-        match VaultInterface::receive(Message::Schema)? {
+    fn get_schema(&self) -> anyhow::Result<Schema> {
+        match self.interface.receive(Message::Schema)? {
             Output::Schema(schema) => Ok(schema),
             _ => Err(Box::new(CommunicationError::UnexpectedOutput).into()),
         }

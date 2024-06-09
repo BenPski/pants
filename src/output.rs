@@ -14,6 +14,18 @@ pub enum Output {
     Nothing,
 }
 
+impl From<Vec<BackupFile>> for Output {
+    fn from(value: Vec<BackupFile>) -> Self {
+        Output::BackupFiles(value)
+    }
+}
+
+impl From<Schema> for Output {
+    fn from(value: Schema) -> Self {
+        Output::Schema(value)
+    }
+}
+
 impl From<Reads<Store>> for Output {
     fn from(value: Reads<Store>) -> Self {
         Output::Read(value)
