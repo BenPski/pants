@@ -28,6 +28,12 @@ pub struct VaultInterface {
     config: Config,
 }
 
+impl Default for VaultInterface {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VaultInterface {
     pub fn new() -> Self {
         let config: Config = Config::figment().extract().unwrap();
