@@ -22,13 +22,6 @@ where
     Data: Serialize + Deserialize<'de>,
 {
     fn base_path(&self) -> PathBuf;
-    // {
-    //     if let Some(project_dirs) = directories_next::ProjectDirs::from("com", "bski", "pants") {
-    //         project_dirs.data_dir().into()
-    //     } else {
-    //         std::env::current_dir().unwrap_or_default()
-    //     }
-    // }
 
     fn path(&self) -> PathBuf;
     fn create(&self) -> anyhow::Result<File> {

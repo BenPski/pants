@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::{
-    config::ClientConfig,
+    config::{client_config::ClientConfig, internal_config::InternalConfig},
     gui::{
         connection,
         entry::{Entry, EntryMessage},
@@ -35,7 +35,7 @@ pub struct VaultState {
 
 impl Default for VaultState {
     fn default() -> Self {
-        let config: ClientConfig = ClientConfig::figment().extract().unwrap();
+        let config: ClientConfig = ClientConfig::load_err();
         Self {
             config,
             schema: Schema::default(),

@@ -2,12 +2,12 @@ use core::panic;
 use std::{cell::RefCell, rc::Rc};
 
 use aes_gcm::{Aes256Gcm, Key};
-use anyhow::Ok;
 use argon2::password_hash::SaltString;
 use rand::rngs::OsRng;
 
 use crate::{
     command::{Command, Commands},
+    config::{internal_config::InternalConfig, vault_config::VaultConfig},
     file::{BackupFile, ProjectFile, RecordFile, SaveDir, SchemaFile, VaultFile},
     message::Message,
     output::Output,
@@ -19,13 +19,12 @@ use crate::{
 };
 
 use super::{
-    config::Config,
     encrypted::{RecordEncrypted, VaultEncrypted},
     Vault,
 };
 
 pub struct VaultInterface {
-    config: Config,
+    config: VaultConfig,
 }
 
 impl Default for VaultInterface {
@@ -36,7 +35,8 @@ impl Default for VaultInterface {
 
 impl VaultInterface {
     pub fn new() -> Self {
-        let config: Config = Config::figment().extract().unwrap();
+        let config: VaultConfig = VaultConfig::load_err();
+
         Self { config }
     }
     pub fn receive(&self, message: Message) -> anyhow::Result<Output> {

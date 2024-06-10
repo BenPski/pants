@@ -1,4 +1,3 @@
-pub mod config;
 pub mod encrypted;
 pub mod interface;
 

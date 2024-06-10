@@ -7,7 +7,7 @@ use inquire::Confirm;
 use pants_gen::password::PasswordSpec;
 
 use crate::{
-    config::ClientConfig,
+    config::{client_config::ClientConfig, internal_config::InternalConfig},
     errors::{ClientError, CommunicationError, SchemaError},
     message::Message,
     output::Output,
@@ -98,7 +98,7 @@ pub struct CliApp {
 impl CliApp {
     pub fn run() {
         let args = CliArgs::parse();
-        let config: ClientConfig = ClientConfig::figment().extract().unwrap();
+        let config: ClientConfig = ClientConfig::load_err();
         let interface = VaultInterface::new();
         let app = CliApp {
             args,
