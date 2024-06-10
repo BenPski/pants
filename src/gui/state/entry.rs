@@ -103,7 +103,7 @@ impl EntryState {
         let value = match style.as_str() {
             "password" => Store::Password(String::new()),
             "username-password" => Store::UsernamePassword(String::new(), String::new()),
-            _ => todo!(),
+            _ => panic!("unrecognized entry value {}", style),
         };
         let (choice, value) = value.split();
         EntryState {

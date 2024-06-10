@@ -17,20 +17,11 @@ use crate::{
     vault::encrypted::{RecordEncrypted, VaultEncrypted},
 };
 
-// TODO: create encrypted files that need to be given a password/key to open
-// applies to the vault, vault backup, and record files
-
 pub trait ProjectFile<'de, Data>
 where
     Data: Serialize + Deserialize<'de>,
 {
-    fn base_path() -> PathBuf {
-        if let Some(project_dirs) = directories_next::ProjectDirs::from("com", "bski", "pants") {
-            project_dirs.data_dir().into()
-        } else {
-            std::env::current_dir().unwrap_or_default()
-        }
-    }
+    fn base_path(&self) -> PathBuf;
 
     fn path(&self) -> PathBuf;
     fn create(&self) -> anyhow::Result<File> {
@@ -91,6 +82,7 @@ impl<'de, Data: Deserialize<'de>> ReadIn<Data> {
 #[derive(Debug, Clone)]
 pub struct TimestampedFile<Data> {
     name: String,
+    base_path: PathBuf,
     timestamp: DateTime<Local>,
     data_type: PhantomData<Data>,
 }
@@ -107,6 +99,7 @@ where
 #[derive(Debug, Clone)]
 pub struct NonTimestampedFile<Data> {
     name: String,
+    base_path: PathBuf,
     data_type: PhantomData<Data>,
 }
 
@@ -124,11 +117,15 @@ where
     Data: Serialize + Deserialize<'de>,
 {
     fn path(&self) -> PathBuf {
-        let mut path = Self::base_path();
+        let mut path = self.base_path();
         path.push(self.name.clone());
         path.push(format!("{}-{}", self.name, format_date(self.timestamp)));
         path.set_extension("json");
         path
+    }
+
+    fn base_path(&self) -> PathBuf {
+        self.base_path.to_path_buf()
     }
 }
 
@@ -137,11 +134,15 @@ where
     Data: Serialize + Deserialize<'de>,
 {
     fn path(&self) -> PathBuf {
-        let mut path = Self::base_path();
+        let mut path = self.base_path();
         path.push(self.name.clone());
         path.push(self.name.clone());
         path.set_extension("json");
         path
+    }
+
+    fn base_path(&self) -> PathBuf {
+        self.base_path.to_path_buf()
     }
 }
 
@@ -150,63 +151,17 @@ where
     Self: Name,
     Data: Serialize + Deserialize<'a>,
 {
-    fn new(timestamp: DateTime<Local>) -> Self {
+    fn new(base_path: PathBuf, timestamp: DateTime<Local>) -> Self {
         Self {
             name: Self::name(),
+            base_path,
             timestamp,
             data_type: PhantomData,
         }
     }
 
-    fn now() -> Self {
-        Self::new(now())
-    }
-
-    pub fn last() -> Option<Self> {
-        let mut path = Self::base_path();
-        path.push(&Self::name());
-        path.push(format!("{}-*.json", Self::name()));
-        glob(path.to_str().unwrap())
-            .expect("Failed to read glob pattern")
-            .fold(None, |acc, entry| match entry {
-                Ok(p) => {
-                    let file_name = p.file_stem().unwrap().to_str().unwrap();
-                    let split = file_name.split_once('-').unwrap();
-                    let time = read_date(split.1).unwrap();
-                    match acc {
-                        None => Some(Self::new(time)),
-                        Some(ref f) => {
-                            if f.timestamp < time {
-                                Some(Self::new(time))
-                            } else {
-                                acc
-                            }
-                        }
-                    }
-                }
-                _ => acc,
-            })
-    }
-
-    pub fn all() -> Vec<Self> {
-        let mut path = Self::base_path();
-        path.push(&Self::name());
-        path.push(format!("{}-*.json", Self::name()));
-        let mut paths = vec![];
-        for entry in glob(path.to_str().unwrap())
-            .expect("Failed to read glob pattern")
-            .flatten()
-        {
-            let file_name = entry.file_stem().unwrap().to_str().unwrap();
-            let split = file_name.split_once('-').unwrap();
-            let _name = split.0.to_owned();
-            let timestamp = read_date(split.1);
-            match timestamp {
-                Err(err) => println!("Malformed timestamp in filename: {:?}. {:?}", entry, err),
-                Ok(t) => paths.push(Self::new(t)),
-            }
-        }
-        paths
+    fn now(base_path: PathBuf) -> Self {
+        Self::new(base_path, now())
     }
 }
 
@@ -215,9 +170,10 @@ where
     Self: Name,
     Data: Serialize + Deserialize<'a>,
 {
-    fn new() -> Self {
+    fn new(base_path: PathBuf) -> Self {
         Self {
             name: Self::name(),
+            base_path,
             data_type: PhantomData,
         }
     }
@@ -260,22 +216,115 @@ impl Name for SchemaFile {
     }
 }
 
-impl<'a, Data> Default for TimestampedFile<Data>
-where
-    TimestampedFile<Data>: Name,
-    Data: Serialize + Deserialize<'a>,
-{
-    fn default() -> Self {
-        Self::now()
-    }
+pub struct SaveDir {
+    base_path: PathBuf,
 }
 
-impl<'a, Data> Default for NonTimestampedFile<Data>
-where
-    NonTimestampedFile<Data>: Name,
-    Data: Serialize + Deserialize<'a>,
-{
-    fn default() -> Self {
-        Self::new()
+impl SaveDir {
+    pub fn new(base_path: PathBuf) -> Self {
+        Self { base_path }
+    }
+
+    pub fn vault_file(&self) -> VaultFile {
+        self.nontimestamped_file()
+    }
+
+    pub fn schema_file(&self) -> SchemaFile {
+        self.nontimestamped_file()
+    }
+
+    pub fn record_file(&self) -> RecordFile {
+        self.timestamped_file()
+    }
+
+    pub fn record_file_latest(&self) -> Option<RecordFile> {
+        self.timestamped_file_recent()
+    }
+
+    pub fn record_file_all(&self) -> Vec<RecordFile> {
+        self.timestamped_file_all()
+    }
+
+    pub fn backup_file(&self) -> BackupFile {
+        self.timestamped_file()
+    }
+
+    pub fn backup_file_latest(&self) -> Option<BackupFile> {
+        self.timestamped_file_recent()
+    }
+
+    pub fn backup_file_all(&self) -> Vec<BackupFile> {
+        self.timestamped_file_all()
+    }
+
+    fn nontimestamped_file<'de, Data>(&self) -> NonTimestampedFile<Data>
+    where
+        NonTimestampedFile<Data>: Name,
+        Data: Serialize + Deserialize<'de>,
+    {
+        NonTimestampedFile::new(self.base_path.to_path_buf())
+    }
+
+    fn timestamped_file<'de, Data>(&self) -> TimestampedFile<Data>
+    where
+        TimestampedFile<Data>: Name,
+        Data: Serialize + Deserialize<'de>,
+    {
+        TimestampedFile::now(self.base_path.to_path_buf())
+    }
+
+    fn timestamped_file_all<'de, Data>(&self) -> Vec<TimestampedFile<Data>>
+    where
+        TimestampedFile<Data>: Name,
+        Data: Serialize + Deserialize<'de>,
+    {
+        let mut path = self.base_path.clone();
+        path.push(&TimestampedFile::name());
+        path.push(format!("{}-*.json", TimestampedFile::name()));
+        let mut paths = vec![];
+        for entry in glob(path.to_str().unwrap())
+            .expect("Failed to read glob pattern")
+            .flatten()
+        {
+            let file_name = entry.file_stem().unwrap().to_str().unwrap();
+            let split = file_name.split_once('-').unwrap();
+            let _name = split.0.to_owned();
+            let timestamp = read_date(split.1);
+            match timestamp {
+                Err(err) => println!("Malformed timestamp in filename: {:?}. {:?}", entry, err),
+                Ok(t) => paths.push(TimestampedFile::new(self.base_path.to_path_buf(), t)),
+            }
+        }
+        paths
+    }
+
+    fn timestamped_file_recent<'de, Data>(&self) -> Option<TimestampedFile<Data>>
+    where
+        TimestampedFile<Data>: Name,
+        Data: Serialize + Deserialize<'de>,
+    {
+        let mut path = self.base_path.clone();
+        path.push(&TimestampedFile::name());
+        path.push(format!("{}-*.json", TimestampedFile::name()));
+        glob(path.to_str().unwrap())
+            .expect("Failed to read glob pattern")
+            .fold(None, |acc, entry| match entry {
+                Ok(p) => {
+                    let file_name = p.file_stem().unwrap().to_str().unwrap();
+                    let split = file_name.split_once('-').unwrap();
+                    let time = read_date(split.1).unwrap();
+                    match acc {
+                        None => Some(TimestampedFile::new(self.base_path.to_path_buf(), time)),
+                        Some(ref f) => {
+                            if f.timestamp < time {
+                                Some(TimestampedFile::new(self.base_path.to_path_buf(), time))
+                            } else {
+                                acc
+                            }
+                        }
+                    }
+                }
+                _ => acc,
+            })
     }
 }

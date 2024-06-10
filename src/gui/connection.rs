@@ -50,6 +50,7 @@ impl Connection {
 }
 pub fn connect() -> Subscription<Event> {
     struct Connect;
+    let interface = VaultInterface::new();
     subscription::channel(
         std::any::TypeId::of::<Connect>(),
         100,
@@ -69,7 +70,7 @@ pub fn connect() -> Subscription<Event> {
 
                         let input = receiver.select_next_some().await;
 
-                        let response = VaultInterface::receive(input);
+                        let response = interface.receive(input);
 
                         if let Ok(vault_output) = response {
                             let event = vault_output.into();

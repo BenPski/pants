@@ -16,6 +16,8 @@ pub enum GUIMessage {
     SelectStyle(StoreChoice),
     UpdateField(String, String),
     GeneratePassword,
+    CopyClipboard(Option<String>),
+    ClearClipboard,
     Event(connection::Event),
     // Send(Message),
 }

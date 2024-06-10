@@ -1,4 +1,7 @@
+use std::str::FromStr;
+
 use crate::{
+    config::{client_config::ClientConfig, internal_config::InternalConfig},
     gui::{
         connection,
         entry::{Entry, EntryMessage},
@@ -17,23 +20,29 @@ use iced::{
     Application, Command, Element, Length, Subscription, Theme,
 };
 use iced_aw::modal;
-use pants_gen::password::Password;
+use iced_futures::MaybeSend;
+use pants_gen::password::PasswordSpec;
 
 pub struct VaultState {
+    config: ClientConfig,
     schema: Schema,
     entries: Vec<Entry>,
     internal_state: Vec<InternalState>,
     temp_message: TempMessage,
+    stored_clipboard: Option<String>,
     state: ConnectionState,
 }
 
 impl Default for VaultState {
     fn default() -> Self {
+        let config: ClientConfig = ClientConfig::load_err();
         Self {
+            config,
             schema: Schema::default(),
             entries: vec![],
             internal_state: Vec::new(),
             temp_message: TempMessage::default(),
+            stored_clipboard: None,
             state: ConnectionState::Disconnected,
         }
     }
@@ -201,6 +210,18 @@ impl From<NewEntryState> for InternalState {
     }
 }
 
+fn delayed_command(
+    time: u64,
+    callback: impl FnOnce(()) -> GUIMessage + 'static + MaybeSend,
+) -> Command<GUIMessage> {
+    Command::perform(
+        async move {
+            let _ = async_std::task::sleep(std::time::Duration::from_secs(time)).await;
+        },
+        callback,
+    )
+}
+
 impl InternalState {
     fn view(&self) -> Element<GUIMessage> {
         match self {
@@ -304,7 +325,8 @@ impl Application for VaultState {
                 };
             }
             GUIMessage::GeneratePassword => {
-                let password = Password::default().generate().unwrap();
+                let spec = PasswordSpec::from_str(&self.config.password_spec).unwrap();
+                let password = spec.generate().unwrap();
                 match self.active_state_mut() {
                     Some(InternalState::New(new_state)) => {
                         new_state
@@ -407,9 +429,21 @@ impl Application for VaultState {
             GUIMessage::CopyPassword => {
                 if let Some(InternalState::Entry(entry_state)) = self.active_state_mut() {
                     if let Some(p) = entry_state.get_password() {
-                        return iced::clipboard::write(p);
+                        return Command::batch(vec![
+                            iced::clipboard::read(GUIMessage::CopyClipboard),
+                            iced::clipboard::write(p),
+                            delayed_command(self.config.clipboard_time, |_| {
+                                GUIMessage::ClearClipboard
+                            }),
+                        ]);
                     }
                 }
+            }
+            GUIMessage::CopyClipboard(data) => self.stored_clipboard = data,
+            GUIMessage::ClearClipboard => {
+                let contents = self.stored_clipboard.clone().unwrap_or_default();
+                self.stored_clipboard = None;
+                return iced::clipboard::write(contents);
             }
         }
 
