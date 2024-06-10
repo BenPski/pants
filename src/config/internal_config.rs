@@ -51,9 +51,11 @@ where
     }
 
     fn load_err() -> Self {
-        Self::load().expect(&format!(
-            "Unable to load or create '{:?}', please create manually",
-            Self::path()
-        ))
+        Self::load().unwrap_or_else(|_| {
+            panic!(
+                "Unable to load or create '{:?}', please create manually",
+                Self::path()
+            )
+        })
     }
 }
