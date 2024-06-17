@@ -1,5 +1,6 @@
 pub mod encrypted;
 pub mod interface;
+pub mod manager;
 
 use core::str;
 use std::collections::HashMap;

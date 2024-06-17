@@ -23,6 +23,9 @@ impl Default for VaultConfig {
 }
 
 impl VaultConfig {
+    pub fn new(save_dir: PathBuf) -> Self {
+        Self { save_dir }
+    }
     pub fn save_dir(&self) -> SaveDir {
         SaveDir::new(self.save_dir.to_path_buf())
     }
@@ -31,6 +34,12 @@ impl VaultConfig {
 impl<'de> InternalConfig<'de> for VaultConfig {
     fn name() -> String {
         "vault.toml".into()
+    }
+
+    fn path(&self) -> PathBuf {
+        let mut base = self.save_dir.clone();
+        base.push(Self::name());
+        base.to_path_buf()
     }
 }
 

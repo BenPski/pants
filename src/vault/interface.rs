@@ -1,5 +1,5 @@
 use core::panic;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use aes_gcm::{Aes256Gcm, Key};
 use argon2::password_hash::SaltString;
@@ -15,7 +15,7 @@ use crate::{
     schema::Schema,
     secure::{Encrypted, SecureData},
     store::Store,
-    Password,
+    utils, Password,
 };
 
 use super::{
@@ -26,16 +26,16 @@ use super::{
 pub struct VaultInterface {
     config: VaultConfig,
 }
-
-impl Default for VaultInterface {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+//
+// impl Default for VaultInterface {
+//     fn default() -> Self {
+//         Self::new(utils::base_path())
+//     }
+// }
 
 impl VaultInterface {
-    pub fn new() -> Self {
-        let config: VaultConfig = VaultConfig::load_err();
+    pub fn new(save_dir: PathBuf) -> Self {
+        let config = VaultConfig::new(save_dir);
 
         Self { config }
     }
