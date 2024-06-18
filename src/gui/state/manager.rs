@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{str::FromStr};
 
 use crate::{
     config::{client_config::ClientConfig, internal_config::InternalConfig},
@@ -10,10 +10,10 @@ use crate::{
         temp_message::TempMessage,
         vault::{Vault, VaultMessage},
     },
+    info::Info,
     manager_message::ManagerMessage,
     output::Output,
     reads::Reads,
-    schema::Schema,
     store::{Store, StoreChoice},
 };
 use iced::{
@@ -27,7 +27,7 @@ use pants_gen::password::PasswordSpec;
 
 pub struct ManagerState {
     config: ClientConfig,
-    info: HashMap<String, Schema>,
+    info: Info,
     vaults: Vec<Vault>,
     internal_state: Vec<InternalState>,
     temp_message: TempMessage,
@@ -40,7 +40,7 @@ impl Default for ManagerState {
         let config: ClientConfig = ClientConfig::load_err();
         Self {
             config,
-            info: HashMap::new(),
+            info: Info::default(),
             vaults: Vec::new(),
             internal_state: Vec::new(),
             temp_message: TempMessage::default(),
@@ -120,9 +120,9 @@ impl ManagerState {
     fn needs_password(&self) -> bool {
         self.temp_message.needs_password()
     }
-    fn update(&mut self, info: HashMap<String, Schema>) {
+    fn update(&mut self, info: Info) {
         let mut vaults = vec![];
-        for (name, schema) in info.iter() {
+        for (name, schema) in info.data.iter() {
             let mut entries = vec![];
             for (key, value) in schema.data.iter() {
                 entries.push(Entry::new(key.to_string(), value.to_string()));

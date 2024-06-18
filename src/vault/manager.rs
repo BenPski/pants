@@ -1,14 +1,12 @@
-use std::collections::HashMap;
-
 use figment::providers::Format;
 
 use crate::{
     config::{internal_config::InternalConfig, manager_config::ManagerConfig},
     errors::ManagerError,
+    info::Info,
     manager_message::ManagerMessage,
     message::Message,
     output::Output,
-    schema::Schema,
     utils,
 };
 
@@ -64,7 +62,7 @@ impl VaultManager {
                 .collect::<Vec<_>>()
                 .into()),
             ManagerMessage::Info => {
-                let mut info: HashMap<String, Schema> = HashMap::new();
+                let mut info = Info::default();
                 for (name, path) in &self.config.map {
                     let interface = VaultInterface::new(path.to_path_buf());
                     if let Ok(Output::Schema(schema)) = interface.receive(Message::Schema) {

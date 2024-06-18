@@ -1,15 +1,21 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::BTreeMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Schema {
-    pub data: HashMap<String, String>,
+    pub data: BTreeMap<String, String>,
 }
 
 impl Schema {
-    pub fn new(data: HashMap<String, String>) -> Self {
-        Self { data }
+    pub fn new() -> Self {
+        Self {
+            data: BTreeMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, key: String, value: String) {
+        self.data.insert(key, value);
     }
 
     pub fn get(&self, key: &str) -> Option<&String> {
@@ -28,15 +34,15 @@ impl Schema {
     }
 }
 
-impl From<HashMap<String, String>> for Schema {
-    fn from(value: HashMap<String, String>) -> Self {
+impl From<BTreeMap<String, String>> for Schema {
+    fn from(value: BTreeMap<String, String>) -> Self {
         Self { data: value }
     }
 }
 
 impl IntoIterator for Schema {
     type Item = (String, String);
-    type IntoIter = std::collections::hash_map::IntoIter<String, String>;
+    type IntoIter = std::collections::btree_map::IntoIter<String, String>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.data.into_iter()

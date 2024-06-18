@@ -1,10 +1,10 @@
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
-use crate::{file::BackupFile, reads::Reads, schema::Schema, store::Store};
+use crate::{file::BackupFile, info::Info, reads::Reads, schema::Schema, store::Store};
 
 #[derive(Debug, Clone)]
 pub enum Output {
-    Info(HashMap<String, Schema>),
+    Info(Info),
     Schema(Schema),
     BackupFiles(Vec<BackupFile>),
     Read(Reads<Store>),
@@ -43,8 +43,8 @@ impl From<()> for Output {
     }
 }
 
-impl From<HashMap<String, Schema>> for Output {
-    fn from(value: HashMap<String, Schema>) -> Self {
+impl From<Info> for Output {
+    fn from(value: Info) -> Self {
         Output::Info(value)
     }
 }
@@ -114,8 +114,8 @@ impl From<HashMap<String, Schema>> for Output {
 impl Display for Output {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Info(data) => {
-                for (vault, schema) in data {
+            Self::Info(info) => {
+                for (vault, schema) in info.data.iter() {
                     writeln!(f, "{}:", vault)?;
                     for (key, value) in schema.data.iter() {
                         writeln!(f, "  {}: {}", key, value)?;

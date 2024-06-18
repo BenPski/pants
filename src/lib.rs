@@ -121,6 +121,7 @@ pub mod config;
 pub mod errors;
 pub mod file;
 pub mod gui;
+pub mod info;
 pub mod manager_message;
 pub mod message;
 pub mod operation;

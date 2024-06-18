@@ -3,7 +3,7 @@ pub mod interface;
 pub mod manager;
 
 use core::str;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -95,10 +95,10 @@ impl Vault {
     }
 
     pub fn schema(&self) -> Schema {
-        let mut map: HashMap<String, String> = HashMap::new();
+        let mut schema = Schema::new();
         for (key, value) in &self.data {
-            map.insert(key.to_string(), value.repr());
+            schema.insert(key.to_string(), value.repr());
         }
-        map.into()
+        schema
     }
 }
