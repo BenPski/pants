@@ -1,6 +1,6 @@
 use iced::{Application, Settings};
-use pants_store::gui::state::vault::VaultState;
+use pants_store::gui::state::manager::ManagerState;
 
 fn main() -> iced::Result {
-    VaultState::run(Settings::default())
+    ManagerState::run(Settings::default())
 }

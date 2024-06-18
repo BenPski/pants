@@ -7,7 +7,7 @@ use rand::rngs::OsRng;
 
 use crate::{
     command::{Command, Commands},
-    config::{internal_config::InternalConfig, vault_config::VaultConfig},
+    config::vault_config::VaultConfig,
     file::{BackupFile, ProjectFile, RecordFile, SaveDir, SchemaFile, VaultFile},
     message::Message,
     output::Output,
@@ -15,7 +15,7 @@ use crate::{
     schema::Schema,
     secure::{Encrypted, SecureData},
     store::Store,
-    utils, Password,
+    Password,
 };
 
 use super::{

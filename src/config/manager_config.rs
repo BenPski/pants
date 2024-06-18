@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+};
 
 use figment::{
     value::{Dict, Map},
@@ -10,7 +13,7 @@ use crate::config::internal_config::InternalConfig;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ManagerConfig {
-    pub map: HashMap<String, PathBuf>,
+    pub map: BTreeMap<String, PathBuf>,
 }
 
 impl<'de> InternalConfig<'de> for ManagerConfig {

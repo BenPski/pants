@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use crate::{
     config::{client_config::ClientConfig, internal_config::InternalConfig},
@@ -8,38 +8,40 @@ use crate::{
         gui_message::GUIMessage,
         state::{entry::EntryState, new_entry::NewEntryState, password::PasswordState},
         temp_message::TempMessage,
+        vault::{Vault, VaultMessage},
     },
-    message::Message,
+    manager_message::ManagerMessage,
+    output::Output,
     reads::Reads,
     schema::Schema,
     store::{Store, StoreChoice},
 };
 use iced::{
     alignment,
-    widget::{button, column, container, scrollable, text},
-    Application, Command, Element, Length, Subscription, Theme,
+    widget::{column, container, scrollable, text},
+    Application, Command, Element, Subscription, Theme,
 };
 use iced_aw::modal;
 use iced_futures::MaybeSend;
 use pants_gen::password::PasswordSpec;
 
-pub struct VaultState {
+pub struct ManagerState {
     config: ClientConfig,
-    schema: Schema,
-    entries: Vec<Entry>,
+    info: HashMap<String, Schema>,
+    vaults: Vec<Vault>,
     internal_state: Vec<InternalState>,
     temp_message: TempMessage,
     stored_clipboard: Option<String>,
     state: ConnectionState,
 }
 
-impl Default for VaultState {
+impl Default for ManagerState {
     fn default() -> Self {
         let config: ClientConfig = ClientConfig::load_err();
         Self {
             config,
-            schema: Schema::default(),
-            entries: vec![],
+            info: HashMap::new(),
+            vaults: Vec::new(),
             internal_state: Vec::new(),
             temp_message: TempMessage::default(),
             stored_clipboard: None,
@@ -53,7 +55,7 @@ enum ConnectionState {
     Connected(connection::Connection),
 }
 
-impl VaultState {
+impl ManagerState {
     fn get_password(&self) -> Option<String> {
         for state in &self.internal_state {
             if let InternalState::Password(p) = state {
@@ -64,39 +66,41 @@ impl VaultState {
     }
     fn handle_password_submit(&mut self, password: String) {
         let messages = match &self.temp_message {
-            TempMessage::Get(key) => {
+            TempMessage::Get(vault, key) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state.push(
                     EntryState::from_entry(
+                        vault.to_string(),
                         key.to_string(),
-                        self.schema.get(key).unwrap().to_string(),
+                        self.info.get(vault).unwrap().get(key).unwrap().to_string(),
                     )
                     .into(),
                 );
                 self.temp_message = TempMessage::Update(
+                    vault.into(),
                     key.to_string(),
                     StoreChoice::default(),
                     StoreChoice::default().convert_default().as_hash(),
                 );
                 vec![message]
             }
-            TempMessage::Delete(_) => {
+            TempMessage::Delete(_, _) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                vec![message, Message::Schema]
+                vec![message, ManagerMessage::Info]
             }
-            TempMessage::New(_, _, _) => {
+            TempMessage::New(_, _, _, _) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                vec![message, Message::Schema]
+                vec![message, ManagerMessage::Info]
             }
-            TempMessage::Update(_, _, _) => {
+            TempMessage::Update(_, _, _, _) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                vec![message, Message::Schema]
+                vec![message, ManagerMessage::Info]
             }
             TempMessage::Empty => {
                 self.internal_state = vec![];
@@ -116,14 +120,17 @@ impl VaultState {
     fn needs_password(&self) -> bool {
         self.temp_message.needs_password()
     }
-    fn update(&mut self, schema: Schema) {
-        let mut entries = vec![];
-        for (key, value) in schema.data.iter() {
-            entries.push(Entry::new(key.to_string(), value.to_string()));
+    fn update(&mut self, info: HashMap<String, Schema>) {
+        let mut vaults = vec![];
+        for (name, schema) in info.iter() {
+            let mut entries = vec![];
+            for (key, value) in schema.data.iter() {
+                entries.push(Entry::new(key.to_string(), value.to_string()));
+            }
+            vaults.push(Vault::new(name.to_string(), entries));
         }
-
-        self.schema = schema;
-        self.entries = entries;
+        self.info = info;
+        self.vaults = vaults;
     }
     fn update_entry(&mut self, data: Reads<Store>) {
         // TODO: check if robust, could be that a response was given to a lower down state, but I
@@ -136,7 +143,7 @@ impl VaultState {
             }
         }
         // seems dumb to loop twice
-        if let TempMessage::Update(update_key, ref mut choice, ref mut update_value) =
+        if let TempMessage::Update(_, update_key, ref mut choice, ref mut update_value) =
             &mut self.temp_message
         {
             for (key, value) in data.data {
@@ -148,7 +155,7 @@ impl VaultState {
             }
         }
     }
-    fn send_message(&mut self, messages: Vec<Message>) {
+    fn send_message(&mut self, messages: Vec<ManagerMessage>) {
         for message in messages {
             match self.state {
                 ConnectionState::Disconnected => {}
@@ -161,22 +168,16 @@ impl VaultState {
     fn view(&self) -> Element<GUIMessage> {
         let top_layer = self.internal_state.last().map(|state| state.view());
 
-        let header = text("Entries")
+        let header = text("Vaults")
             .size(20)
             .horizontal_alignment(alignment::Horizontal::Center);
-        let content = scrollable(column(self.entries.iter().map(|e| {
-            e.view()
-                .map(move |message| GUIMessage::EntryMessage(message, e.key.clone()))
+        let content = scrollable(column(self.vaults.iter().map(|v| {
+            v.view()
+                .map(move |message| GUIMessage::VaultMessage(message, v.name.clone()))
         })));
-        let new_button = button(
-            text("+")
-                .horizontal_alignment(alignment::Horizontal::Center)
-                .width(Length::Fill),
-        )
-        .width(Length::Fill)
-        .on_press(GUIMessage::NewEntry);
+
         let info = self.temp_message.view();
-        let primary = container(column![header, content, new_button, info]);
+        let primary = container(column![header, content, info]);
         modal(primary, top_layer)
             .backdrop(GUIMessage::Exit)
             .on_esc(GUIMessage::Exit)
@@ -232,7 +233,7 @@ impl InternalState {
     }
 }
 
-impl Application for VaultState {
+impl Application for ManagerState {
     type Flags = ();
     type Theme = Theme;
     type Message = GUIMessage;
@@ -251,35 +252,50 @@ impl Application for VaultState {
             GUIMessage::Event(event) => match event {
                 connection::Event::Connected(connection) => {
                     self.state = ConnectionState::Connected(connection);
-                    self.send_message(vec![Message::Schema]);
+                    self.send_message(vec![ManagerMessage::Info]);
                 }
                 connection::Event::Disconnected => {
                     self.state = ConnectionState::Disconnected;
                 }
-                connection::Event::ReceiveSchema(schema) => {
-                    println!("Received schema: {}", schema);
-                    self.update(schema);
+                connection::Event::ReceiveOutput(Output::Info(info)) => {
+                    println!("Received info: {:?}", info);
+                    self.update(info);
                 }
-                connection::Event::ReceiveRead(value) => {
+                connection::Event::ReceiveOutput(Output::Read(value)) => {
                     println!("Received read: {}", value);
                     self.update_entry(value);
                 }
                 _ => {}
             },
             // GUIMessage::Send(message) => self.send_message(vec![message]),
-            GUIMessage::EntryMessage(EntryMessage::Delete, key) => {
-                self.temp_message = TempMessage::Delete(key);
-                if self.needs_password() {
-                    self.internal_state.push(PasswordState::default().into());
-                }
-            }
-            GUIMessage::EntryMessage(EntryMessage::View, key) => {
-                self.temp_message = TempMessage::Get(key.clone());
+            GUIMessage::VaultMessage(message, vault) => match message {
+                VaultMessage::Entry(entry_message, key) => match entry_message {
+                    EntryMessage::Delete => {
+                        self.temp_message = TempMessage::Delete(vault, key);
+                        if self.needs_password() {
+                            self.internal_state.push(PasswordState::default().into());
+                        }
+                    }
+                    EntryMessage::View => {
+                        self.temp_message = TempMessage::Get(vault, key.clone());
 
-                if self.needs_password() {
-                    self.internal_state.push(PasswordState::default().into());
+                        if self.needs_password() {
+                            self.internal_state.push(PasswordState::default().into());
+                        }
+                    }
+                },
+                VaultMessage::NewEntry => {
+                    self.temp_message = TempMessage::New(
+                        vault.to_string(),
+                        String::new(),
+                        StoreChoice::default(),
+                        StoreChoice::default().convert_default().as_hash(),
+                    );
+                    self.internal_state
+                        .push(NewEntryState::for_vault(vault).into());
                 }
-            }
+            },
+
             GUIMessage::PasswordChanged(p) => {
                 if let Some(InternalState::Password(password_state)) = self.active_state_mut() {
                     password_state.password = p;
@@ -290,7 +306,7 @@ impl Application for VaultState {
                 if let Some(InternalState::New(new_state)) = self.active_state_mut() {
                     new_state.name.clone_from(&n);
                 }
-                if let TempMessage::New(ref mut key, _, _) = &mut self.temp_message {
+                if let TempMessage::New(_, ref mut key, _, _) = &mut self.temp_message {
                     *key = n;
                 }
             }
@@ -299,7 +315,8 @@ impl Application for VaultState {
                     new_state.choice = choice;
                     new_state.value = choice.convert_default().as_hash();
                 }
-                if let TempMessage::New(_, ref mut style, ref mut value) = &mut self.temp_message {
+                if let TempMessage::New(_, _, ref mut style, ref mut value) = &mut self.temp_message
+                {
                     *style = choice;
                     *value = choice.convert_default().as_hash();
                 }
@@ -315,10 +332,10 @@ impl Application for VaultState {
                     _ => {}
                 };
                 match &mut self.temp_message {
-                    TempMessage::New(_, _, ref mut value) => {
+                    TempMessage::New(_, _, _, ref mut value) => {
                         value.insert(k, v);
                     }
-                    TempMessage::Update(_, _, ref mut value) => {
+                    TempMessage::Update(_, _, _, ref mut value) => {
                         value.insert(k, v);
                     }
                     _ => {}
@@ -341,24 +358,16 @@ impl Application for VaultState {
                     _ => {}
                 };
                 match &mut self.temp_message {
-                    TempMessage::New(_, _, ref mut value) => {
+                    TempMessage::New(_, _, _, ref mut value) => {
                         value.insert("password".to_string(), password);
                     }
-                    TempMessage::Update(_, _, ref mut value) => {
+                    TempMessage::Update(_, _, _, ref mut value) => {
                         value.insert("password".to_string(), password);
                     }
                     _ => {}
                 };
             }
 
-            GUIMessage::NewEntry => {
-                self.temp_message = TempMessage::New(
-                    String::new(),
-                    StoreChoice::default(),
-                    StoreChoice::default().convert_default().as_hash(),
-                );
-                self.internal_state.push(NewEntryState::default().into());
-            }
             GUIMessage::Submit => {
                 if let Some(active_state) = self.active_state() {
                     match active_state {
@@ -366,23 +375,27 @@ impl Application for VaultState {
                             self.handle_password_submit(password_state.password.clone());
                         }
                         InternalState::New(new_state) => {
-                            if !self.schema.data.contains_key(&new_state.name)
-                                && self.temp_message.complete()
-                            {
-                                self.internal_state.push(PasswordState::default().into());
+                            if let Some(schema) = self.info.get(&new_state.vault) {
+                                if !schema.data.contains_key(&new_state.name)
+                                    && self.temp_message.complete()
+                                {
+                                    self.internal_state.push(PasswordState::default().into());
+                                }
                             }
                         }
                         InternalState::Entry(entry_state) => {
-                            if self.schema.data.contains_key(&entry_state.key)
-                                && self.temp_message.complete()
-                            {
-                                if let Some(password) = self.get_password() {
-                                    let message = self.temp_message.with_password(password);
-                                    self.send_message(vec![message]);
-                                    self.temp_message = TempMessage::default();
-                                    self.internal_state = vec![];
-                                } else {
-                                    self.internal_state.push(PasswordState::default().into());
+                            if let Some(schema) = self.info.get(&entry_state.vault) {
+                                if schema.data.contains_key(&entry_state.key)
+                                    && self.temp_message.complete()
+                                {
+                                    if let Some(password) = self.get_password() {
+                                        let message = self.temp_message.with_password(password);
+                                        self.send_message(vec![message]);
+                                        self.temp_message = TempMessage::default();
+                                        self.internal_state = vec![];
+                                    } else {
+                                        self.internal_state.push(PasswordState::default().into());
+                                    }
                                 }
                             }
                         }
@@ -394,10 +407,10 @@ impl Application for VaultState {
                     match active_state {
                         InternalState::Password(_password_state) => {
                             match self.temp_message {
-                                TempMessage::Delete(_) => {
+                                TempMessage::Delete(..) => {
                                     self.temp_message = TempMessage::default();
                                 }
-                                TempMessage::Get(_) => {
+                                TempMessage::Get(..) => {
                                     self.temp_message = TempMessage::default();
                                 }
                                 _ => {}

@@ -9,13 +9,12 @@ use pants_gen::password::PasswordSpec;
 use crate::{
     config::{client_config::ClientConfig, internal_config::InternalConfig},
     errors::{ClientError, CommunicationError, SchemaError},
-    gui::gui_message::GUIMessage,
     manager_message::ManagerMessage,
     message::Message,
     output::Output,
     schema::Schema,
     store::Store,
-    vault::{interface::VaultInterface, manager::VaultManager},
+    vault::manager::VaultManager,
     Password,
 };
 
@@ -75,8 +74,11 @@ pub enum CLICommands {
         /// name of the entry
         key: String,
     },
-    /// list the entries in the vault
-    List,
+    /// list the vaults/entries
+    List {
+        /// name of vault to list entries of
+        vault: Option<String>,
+    },
     /// interact with backups, defaults to creating a new backup
     Backup {
         /// name of the vault
@@ -160,9 +162,9 @@ impl CliApp {
         mut manager: VaultManager,
         command: &CLICommands,
     ) -> anyhow::Result<()> {
-        let message = Self::construct_message(&mut manager, &config, command)?;
+        let message = Self::construct_message(&mut manager, config, command)?;
         let output = manager.receive(message)?;
-        Self::handle_output(&config, output_style, output)
+        Self::handle_output(config, output_style, output)
     }
     fn handle_output(
         config: &ClientConfig,
@@ -220,6 +222,15 @@ impl CliApp {
             }
             Output::Schema(schema) => {
                 println!("{}", schema);
+                Ok(())
+            }
+            Output::Info(data) => {
+                for (vault, schema) in data {
+                    println!("{}:", vault);
+                    for (key, value) in schema.data.iter() {
+                        println!("  {}: {}", key, value);
+                    }
+                }
                 Ok(())
             }
             Output::Backup(backup) => {
@@ -330,7 +341,13 @@ impl CliApp {
                 }
             },
             // CLICommands::List => Ok(Message::Schema),
-            CLICommands::List => Ok(ManagerMessage::List),
+            CLICommands::List { vault } => {
+                if let Some(name) = vault {
+                    Ok(ManagerMessage::VaultMessage(name.into(), Message::Schema))
+                } else {
+                    Ok(ManagerMessage::Info)
+                }
+            }
             CLICommands::Gen(_) => panic!("Should have branched before this"),
         }
     }

@@ -1,17 +1,18 @@
 use crate::store::StoreChoice;
 
-use super::{connection, entry::EntryMessage};
+use super::{connection, vault::VaultMessage};
 
 #[derive(Debug, Clone)]
 pub enum GUIMessage {
     Exit,
     Submit,
-    EntryMessage(EntryMessage, String),
+    // EntryMessage(EntryMessage, String),
+    VaultMessage(VaultMessage, String),
     ShowPassword,
     HidePassword,
     CopyPassword,
     PasswordChanged(String),
-    NewEntry,
+    // NewEntry,
     ChangeName(String),
     SelectStyle(StoreChoice),
     UpdateField(String, String),

@@ -4,5 +4,6 @@ use crate::message::Message;
 pub enum ManagerMessage {
     NewVault(String),
     List,
+    Info,
     VaultMessage(String, Message),
 }

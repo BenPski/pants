@@ -1,8 +1,14 @@
+use std::collections::HashMap;
+
+use figment::providers::Format;
+
 use crate::{
-    config::{self, internal_config::InternalConfig, manager_config::ManagerConfig},
+    config::{internal_config::InternalConfig, manager_config::ManagerConfig},
     errors::ManagerError,
     manager_message::ManagerMessage,
+    message::Message,
     output::Output,
+    schema::Schema,
     utils,
 };
 
@@ -14,9 +20,11 @@ pub struct VaultManager {
 
 impl Default for VaultManager {
     fn default() -> Self {
-        Self {
-            config: ManagerConfig::load_err(),
-        }
+        let mut path = utils::base_path();
+        path.push(ManagerConfig::name());
+        let figment = ManagerConfig::figment().merge(figment::providers::Toml::file_exact(path));
+        let config = figment.extract().unwrap();
+        Self { config }
     }
 }
 
@@ -28,14 +36,16 @@ impl VaultManager {
     pub fn receive(&mut self, message: ManagerMessage) -> anyhow::Result<Output> {
         match message {
             ManagerMessage::NewVault(name) => {
-                if self.config.map.contains_key(&name) {
-                    Err(ManagerError::VaultExists.into())
-                } else {
+                if let std::collections::btree_map::Entry::Vacant(e) =
+                    self.config.map.entry(name.clone())
+                {
                     let mut path = utils::base_path();
                     path.push(name.clone());
-                    self.config.map.insert(name, path.to_str().unwrap().into());
-                    self.config.save();
+                    e.insert(path.to_str().unwrap().into());
+                    self.config.save()?;
                     Ok(().into())
+                } else {
+                    Err(ManagerError::VaultExists.into())
                 }
             }
             ManagerMessage::VaultMessage(name, message) => {
@@ -53,6 +63,16 @@ impl VaultManager {
                 .into_keys()
                 .collect::<Vec<_>>()
                 .into()),
+            ManagerMessage::Info => {
+                let mut info: HashMap<String, Schema> = HashMap::new();
+                for (name, path) in &self.config.map {
+                    let interface = VaultInterface::new(path.to_path_buf());
+                    if let Ok(Output::Schema(schema)) = interface.receive(Message::Schema) {
+                        info.insert(name.to_string(), schema);
+                    }
+                }
+                Ok(info.into())
+            }
         }
     }
 }

@@ -10,6 +10,7 @@ use crate::{gui::gui_message::GUIMessage, store::StoreChoice};
 
 #[derive(Debug, Clone)]
 pub struct NewEntryState {
+    pub vault: String,
     pub name: String,
     pub choice: StoreChoice,
     pub value: HashMap<String, String>,
@@ -18,6 +19,7 @@ pub struct NewEntryState {
 impl Default for NewEntryState {
     fn default() -> Self {
         NewEntryState {
+            vault: String::new(),
             name: String::new(),
             choice: StoreChoice::default(),
             value: StoreChoice::default().convert_default().as_hash(),
@@ -26,8 +28,16 @@ impl Default for NewEntryState {
 }
 
 impl NewEntryState {
+    pub fn for_vault(vault: String) -> Self {
+        NewEntryState {
+            vault,
+            name: String::new(),
+            choice: StoreChoice::default(),
+            value: StoreChoice::default().convert_default().as_hash(),
+        }
+    }
     pub fn view(&self) -> Element<GUIMessage> {
-        let header = text("New entry");
+        let header = text(format!("New entry for {}", self.vault));
         let name_prefix = text("Name:");
         let name_input = text_input("Name", &self.name).on_input(GUIMessage::ChangeName);
         let style_choice = pick_list(

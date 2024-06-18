@@ -3,7 +3,7 @@ pub mod interface;
 pub mod manager;
 
 use core::str;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +18,7 @@ use crate::{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Vault {
-    data: HashMap<String, Store>,
+    data: BTreeMap<String, Store>,
 }
 
 impl Default for Vault {
@@ -30,7 +30,7 @@ impl Default for Vault {
 impl Vault {
     pub fn new() -> Vault {
         Self {
-            data: HashMap::new(),
+            data: BTreeMap::new(),
         }
     }
 

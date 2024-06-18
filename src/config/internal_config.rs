@@ -1,9 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use figment::{
-    providers::{Format, Toml},
-    Error, Figment, Provider,
-};
+use figment::{Error, Figment, Provider};
 use serde::{Deserialize, Serialize};
 
 use crate::utils;
@@ -26,7 +23,6 @@ where
     // that the client actually wants to replace or choose the config file location
     fn figment() -> Figment {
         use figment::providers::Env;
-
         Figment::from(Self::default()).merge(Env::prefixed("PANTS_"))
     }
 

@@ -5,35 +5,36 @@ use iced::{
     Element,
 };
 
-use crate::{message::Message, store::StoreChoice};
+use crate::{manager_message::ManagerMessage, message::Message, store::StoreChoice};
 
 use super::gui_message::GUIMessage;
 
+// first field is vault name
 #[derive(Debug, Clone, Default)]
 pub enum TempMessage {
     #[default]
     Empty,
-    Delete(String),
-    Get(String),
-    New(String, StoreChoice, HashMap<String, String>),
-    Update(String, StoreChoice, HashMap<String, String>),
+    Delete(String, String),
+    Get(String, String),
+    New(String, String, StoreChoice, HashMap<String, String>),
+    Update(String, String, StoreChoice, HashMap<String, String>),
 }
 
 impl TempMessage {
     pub fn needs_password(&self) -> bool {
         match self {
             Self::Empty => false,
-            Self::Delete(_) => true,
-            Self::Get(_) => true,
-            Self::New(_, _, _) => true,
-            Self::Update(_, _, _) => true,
+            Self::Delete(_, _) => true,
+            Self::Get(_, _) => true,
+            Self::New(_, _, _, _) => true,
+            Self::Update(_, _, _, _) => true,
         }
     }
 
     pub fn complete(&self) -> bool {
         match self {
             Self::Empty => true,
-            Self::New(name, _, fields) => {
+            Self::New(_, name, _, fields) => {
                 let mut filled = true;
                 for (_, value) in fields.iter() {
                     if value.is_empty() {
@@ -43,7 +44,7 @@ impl TempMessage {
                 }
                 !name.is_empty() && filled
             }
-            Self::Update(name, _, fields) => {
+            Self::Update(_, name, _, fields) => {
                 let mut filled = true;
                 for (_, value) in fields.iter() {
                     if value.is_empty() {
@@ -53,41 +54,48 @@ impl TempMessage {
                 }
                 !name.is_empty() && filled
             }
-            Self::Get(name) => !name.is_empty(),
-            Self::Delete(name) => !name.is_empty(),
+            Self::Get(_, name) => !name.is_empty(),
+            Self::Delete(_, name) => !name.is_empty(),
         }
     }
 
-    pub fn with_password(&self, password: String) -> Message {
+    pub fn with_password(&self, password: String) -> ManagerMessage {
         match self {
-            Self::Delete(key) => Message::Delete(password, key.to_string()),
-            Self::Get(key) => Message::Get(password, key.to_string()),
-            Self::New(key, choice, value) => {
-                Message::Update(password, key.clone(), choice.convert(value).unwrap())
+            Self::Delete(vault, key) => ManagerMessage::VaultMessage(
+                vault.into(),
+                Message::Delete(password, key.to_string()),
+            ),
+            Self::Get(vault, key) => {
+                ManagerMessage::VaultMessage(vault.into(), Message::Get(password, key.to_string()))
             }
-            Self::Update(key, choice, value) => {
-                Message::Update(password, key.clone(), choice.convert(value).unwrap())
-            }
-            Self::Empty => Message::Schema,
+            Self::New(vault, key, choice, value) => ManagerMessage::VaultMessage(
+                vault.into(),
+                Message::Update(password, key.clone(), choice.convert(value).unwrap()),
+            ),
+            Self::Update(vault, key, choice, value) => ManagerMessage::VaultMessage(
+                vault.into(),
+                Message::Update(password, key.clone(), choice.convert(value).unwrap()),
+            ),
+            Self::Empty => ManagerMessage::Info,
         }
     }
 
     pub fn view(&self) -> Element<GUIMessage> {
         match self {
-            TempMessage::Delete(key) => {
-                let info = text(format!("Working on deleting {}", key));
+            TempMessage::Delete(vault, key) => {
+                let info = text(format!("Working on deleting {} in {}", key, vault));
                 container(info).into()
             }
-            TempMessage::Get(key) => {
-                let info = text(format!("Working on getting {}", key));
+            TempMessage::Get(vault, key) => {
+                let info = text(format!("Working on getting {} in {}", key, vault));
                 container(info).into()
             }
-            TempMessage::New(key, _, _) => {
-                let info = text(format!("Working on a new entry {}", key));
+            TempMessage::New(vault, key, _, _) => {
+                let info = text(format!("Working on a new entry {} in {}", key, vault));
                 container(info).into()
             }
-            TempMessage::Update(key, _, _) => {
-                let info = text(format!("Working on updating entry {}", key));
+            TempMessage::Update(vault, key, _, _) => {
+                let info = text(format!("Working on updating entry {} in {}", key, vault));
                 container(info).into()
             }
             Self::Empty => {
