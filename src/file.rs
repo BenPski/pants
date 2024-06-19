@@ -226,7 +226,7 @@ impl SaveDir {
     }
 
     pub fn remove(&self) -> Result<(), std::io::Error> {
-        fs::remove_dir_all(self.base_path.to_path_buf())
+        fs::remove_dir_all(&self.base_path)
     }
 
     pub fn vault_file(&self) -> VaultFile {

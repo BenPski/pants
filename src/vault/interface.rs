@@ -13,7 +13,7 @@ use crate::{
     message::Message,
     output::Output,
     reads::Reads,
-    schema::{self, Schema},
+    schema::Schema,
     secure::{Encrypted, SecureData},
     store::Store,
     Password,

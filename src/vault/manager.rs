@@ -7,7 +7,7 @@ use crate::{
     manager_message::ManagerMessage,
     message::Message,
     output::Output,
-    schema, utils,
+    utils,
 };
 
 use super::interface::VaultInterface;
@@ -35,26 +35,17 @@ impl VaultManager {
         match message {
             ManagerMessage::Empty => Ok(().into()),
             ManagerMessage::NewVault(name) => {
-                if let None = self.config.map.get(&name) {
+                if let std::collections::btree_map::Entry::Vacant(e) =
+                    self.config.map.entry(name.clone())
+                {
                     let mut path = utils::base_path();
                     path.push(name.clone());
-                    self.config.map.insert(name, path.to_str().unwrap().into());
+                    e.insert(path.to_str().unwrap().into());
                     self.config.save()?;
                     Ok(().into())
                 } else {
                     Err(ManagerError::VaultExists.into())
                 }
-                // if let std::collections::btree_map::Entry::Vacant(e) =
-                //     self.config.map.entry(name.clone())
-                // {
-                //     let mut path = utils::base_path();
-                //     path.push(name.clone());
-                //     e.insert(path.to_str().unwrap().into());
-                //     self.config.save()?;
-                //     Ok(().into())
-                // } else {
-                //     Err(ManagerError::VaultExists.into())
-                // }
             }
             ManagerMessage::DeleteVault(name, password) => {
                 if let Some(path) = self.config.map.get(&name) {

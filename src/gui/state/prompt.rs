@@ -6,17 +6,9 @@ use iced_aw::Card;
 
 use crate::gui::gui_message::GUIMessage;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PromptState {
     pub vault: String,
-}
-
-impl Default for PromptState {
-    fn default() -> Self {
-        PromptState {
-            vault: String::new(),
-        }
-    }
 }
 
 impl PromptState {

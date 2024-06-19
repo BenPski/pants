@@ -77,7 +77,9 @@ pub fn connect() -> Subscription<Event> {
                                 let event = vault_output.into();
                                 let _ = output.send(event).await;
                             }
-                            Err(e) => {
+                            // TODO: actually pass along errors so they can be reacted to and
+                            // reported
+                            Err(_) => {
                                 let _ = output.send(Event::ReceiveError).await;
                             }
                         }

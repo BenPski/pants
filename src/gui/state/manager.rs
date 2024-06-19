@@ -25,7 +25,7 @@ use iced_aw::modal;
 use iced_futures::MaybeSend;
 use pants_gen::password::PasswordSpec;
 
-use super::{new_vault::NewVaultState, prompt::PromptState};
+use super::prompt::PromptState;
 
 pub struct ManagerState {
     config: ClientConfig,
