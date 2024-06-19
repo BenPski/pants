@@ -52,4 +52,6 @@ pub enum ManagerError {
     VaultExists,
     #[error("Vault does not exist")]
     VaultDoesNotExist,
+    #[error("Tried to delete a non-empty vault")]
+    NonEmptyVault,
 }

@@ -15,6 +15,8 @@ pub enum TempMessage {
     #[default]
     Empty,
     Delete(String, String),
+    DeleteVault(String),
+    DeleteEmptyVault(String),
     Get(String, String),
     New(String, String, StoreChoice, HashMap<String, String>),
     Update(String, String, StoreChoice, HashMap<String, String>),
@@ -24,10 +26,12 @@ impl TempMessage {
     pub fn needs_password(&self) -> bool {
         match self {
             Self::Empty => false,
-            Self::Delete(_, _) => true,
-            Self::Get(_, _) => true,
-            Self::New(_, _, _, _) => true,
-            Self::Update(_, _, _, _) => true,
+            Self::Delete(..) => true,
+            Self::Get(..) => true,
+            Self::New(..) => true,
+            Self::Update(..) => true,
+            Self::DeleteVault(..) => true,
+            Self::DeleteEmptyVault(..) => false,
         }
     }
 
@@ -56,6 +60,8 @@ impl TempMessage {
             }
             Self::Get(_, name) => !name.is_empty(),
             Self::Delete(_, name) => !name.is_empty(),
+            Self::DeleteVault(..) => true,
+            Self::DeleteEmptyVault(..) => true,
         }
     }
 
@@ -76,6 +82,8 @@ impl TempMessage {
                 vault.into(),
                 Message::Update(password, key.clone(), choice.convert(value).unwrap()),
             ),
+            Self::DeleteVault(vault) => ManagerMessage::DeleteVault(vault.into(), password),
+            Self::DeleteEmptyVault(vault) => ManagerMessage::DeleteEmptyVault(vault.into()),
             Self::Empty => ManagerMessage::Info,
         }
     }
@@ -84,6 +92,14 @@ impl TempMessage {
         match self {
             TempMessage::Delete(vault, key) => {
                 let info = text(format!("Working on deleting {} in {}", key, vault));
+                container(info).into()
+            }
+            TempMessage::DeleteVault(vault) => {
+                let info = text(format!("Working on deleting {}", vault));
+                container(info).into()
+            }
+            TempMessage::DeleteEmptyVault(vault) => {
+                let info = text(format!("Working on deleting {}", vault));
                 container(info).into()
             }
             TempMessage::Get(vault, key) => {

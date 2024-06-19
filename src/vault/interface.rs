@@ -8,11 +8,12 @@ use rand::rngs::OsRng;
 use crate::{
     command::{Command, Commands},
     config::vault_config::VaultConfig,
+    errors::ManagerError,
     file::{BackupFile, ProjectFile, RecordFile, SaveDir, SchemaFile, VaultFile},
     message::Message,
     output::Output,
     reads::Reads,
-    schema::Schema,
+    schema::{self, Schema},
     secure::{Encrypted, SecureData},
     store::Store,
     Password,
@@ -39,6 +40,22 @@ impl VaultInterface {
 
         Self { config }
     }
+    pub fn delete(&self, password: Password) -> anyhow::Result<()> {
+        // ensure password is right
+        VaultHandler::get_interface(password, self.config.save_dir())?;
+        let dir = self.config.save_dir();
+        let _ = dir.remove();
+        Ok(())
+    }
+    pub fn delete_empty(&self) -> anyhow::Result<()> {
+        if self.is_empty() {
+            let dir = self.config.save_dir();
+            let _ = dir.remove();
+            Ok(())
+        } else {
+            Err(ManagerError::NonEmptyVault.into())
+        }
+    }
     pub fn receive(&self, message: Message) -> anyhow::Result<Output> {
         match message {
             Message::Schema => Ok(self.get_schema().into()),
@@ -53,6 +70,11 @@ impl VaultInterface {
             .read()
             .map(|data| data.deserialize())
             .unwrap_or(Schema::default())
+    }
+
+    fn is_empty(&self) -> bool {
+        let schema = self.get_schema();
+        schema.is_empty()
     }
 }
 

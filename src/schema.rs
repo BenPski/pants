@@ -22,6 +22,10 @@ impl Schema {
         self.data.get(key)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
     pub fn keys(self) -> Vec<String> {
         self.data.into_keys().collect()
     }

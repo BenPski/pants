@@ -9,6 +9,7 @@ pub enum Event {
     Connected(Connection),
     Disconnected,
     ReceiveOutput(Output),
+    ReceiveError,
     // ReceiveSchema(Schema),
     // ReceiveRead(Reads<Store>),
     // ReceiveList(Vec<String>),
@@ -71,9 +72,14 @@ pub fn connect() -> Subscription<Event> {
 
                         let response = interface.receive(input);
 
-                        if let Ok(vault_output) = response {
-                            let event = vault_output.into();
-                            let _ = output.send(event).await;
+                        match response {
+                            Ok(vault_output) => {
+                                let event = vault_output.into();
+                                let _ = output.send(event).await;
+                            }
+                            Err(e) => {
+                                let _ = output.send(Event::ReceiveError).await;
+                            }
                         }
                     }
                 }

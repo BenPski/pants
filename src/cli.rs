@@ -9,6 +9,7 @@ use pants_gen::password::PasswordSpec;
 use crate::{
     config::{client_config::ClientConfig, internal_config::InternalConfig},
     errors::{ClientError, CommunicationError, SchemaError},
+    info::Info,
     manager_message::ManagerMessage,
     message::Message,
     output::Output,
@@ -67,12 +68,12 @@ pub enum CLICommands {
         #[arg(long)]
         spec: Option<String>,
     },
-    /// delete the entry
+    /// delete a vault/entry
     Delete {
         /// name of the vault
         vault: String,
         /// name of the entry
-        key: String,
+        key: Option<String>,
     },
     /// list the vaults/entries
     List {
@@ -277,21 +278,47 @@ impl CliApp {
                 }
             }
             CLICommands::Delete { vault, key } => {
-                let password = Self::get_password("Vault password:")?;
-                Ok(ManagerMessage::VaultMessage(
-                    vault.into(),
-                    Message::Delete(password, key.to_string()),
-                ))
+                if let Some(key) = key {
+                    let password = Self::get_password("Vault password:")?;
+                    Ok(ManagerMessage::VaultMessage(
+                        vault.into(),
+                        Message::Delete(password, key.to_string()),
+                    ))
+                } else {
+                    let choice =
+                        Confirm::new("Are you sure you want to delete the whole vault?").prompt();
+                    let schema = Self::get_schema(manager, vault.into())?;
+                    if schema.is_empty() {
+                        Ok(ManagerMessage::DeleteEmptyVault(vault.into()))
+                    } else {
+                        let password = Self::get_password("Vault password:")?;
+                        match choice {
+                            Ok(true) => Ok(ManagerMessage::DeleteVault(vault.into(), password)),
+                            _ => Ok(ManagerMessage::Empty),
+                        }
+                    }
+                }
             }
             CLICommands::Add { vault, style, spec } => {
-                let schema = Self::get_schema(manager, vault.into())?;
+                let info = Self::get_info(manager)?;
+                let new_vault = !info.data.contains_key(vault);
+                if new_vault {
+                    manager.receive(ManagerMessage::NewVault(vault.into()))?;
+                }
+                let schema = info.get(vault).cloned().unwrap_or(Schema::default());
                 let spec =
                     PasswordSpec::from_str(&spec.clone().unwrap_or(config.password_spec.clone()))?;
                 match style {
-                    EntryStyle::Password { name } => {
-                        Self::handle_new(vault.into(), schema, name.to_string(), "password", spec)
-                    }
+                    EntryStyle::Password { name } => Self::handle_new(
+                        new_vault,
+                        vault.into(),
+                        schema,
+                        name.to_string(),
+                        "password",
+                        spec,
+                    ),
                     EntryStyle::UsernamePassword { name } => Self::handle_new(
+                        new_vault,
                         vault.into(),
                         schema,
                         name.to_string(),
@@ -353,6 +380,7 @@ impl CliApp {
     }
 
     fn handle_new(
+        new_vault: bool,
         vault: String,
         schema: Schema,
         key: String,
@@ -362,7 +390,11 @@ impl CliApp {
         match schema.get(&key) {
             None => {
                 let value = Self::prompt(style, spec)?;
-                let password = Self::get_password("Vault password:")?;
+                let password = if new_vault {
+                    Self::get_password_confirm("New vault password:")?
+                } else {
+                    Self::get_password("Vault password:")?
+                };
                 Ok(ManagerMessage::VaultMessage(
                     vault,
                     Message::Update(password, key, value),
@@ -375,6 +407,13 @@ impl CliApp {
     fn get_schema(manager: &mut VaultManager, vault: String) -> anyhow::Result<Schema> {
         match manager.receive(ManagerMessage::VaultMessage(vault, Message::Schema))? {
             Output::Schema(schema) => Ok(schema),
+            _ => Err(Box::new(CommunicationError::UnexpectedOutput).into()),
+        }
+    }
+
+    fn get_info(manager: &mut VaultManager) -> anyhow::Result<Info> {
+        match manager.receive(ManagerMessage::Info)? {
+            Output::Info(info) => Ok(info),
             _ => Err(Box::new(CommunicationError::UnexpectedOutput).into()),
         }
     }

@@ -1,4 +1,4 @@
-use std::{str::FromStr};
+use std::str::FromStr;
 
 use crate::{
     config::{client_config::ClientConfig, internal_config::InternalConfig},
@@ -18,12 +18,14 @@ use crate::{
 };
 use iced::{
     alignment,
-    widget::{column, container, scrollable, text},
+    widget::{button, column, container, scrollable, text},
     Application, Command, Element, Subscription, Theme,
 };
 use iced_aw::modal;
 use iced_futures::MaybeSend;
 use pants_gen::password::PasswordSpec;
+
+use super::{new_vault::NewVaultState, prompt::PromptState};
 
 pub struct ManagerState {
     config: ClientConfig,
@@ -84,19 +86,19 @@ impl ManagerState {
                 );
                 vec![message]
             }
-            TempMessage::Delete(_, _) => {
+            TempMessage::Delete(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
                 vec![message, ManagerMessage::Info]
             }
-            TempMessage::New(_, _, _, _) => {
+            TempMessage::New(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
                 vec![message, ManagerMessage::Info]
             }
-            TempMessage::Update(_, _, _, _) => {
+            TempMessage::Update(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
@@ -106,6 +108,19 @@ impl ManagerState {
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
                 vec![]
+            }
+            TempMessage::DeleteVault(..) => {
+                let message = self.temp_message.with_password(password);
+                self.internal_state = vec![];
+                self.temp_message = TempMessage::default();
+                vec![message, ManagerMessage::Info]
+            }
+            // non-sense
+            TempMessage::DeleteEmptyVault(..) => {
+                let message = self.temp_message.with_password(password);
+                self.internal_state = vec![];
+                self.temp_message = TempMessage::default();
+                vec![message, ManagerMessage::Info]
             }
         };
         self.send_message(messages);
@@ -171,13 +186,14 @@ impl ManagerState {
         let header = text("Vaults")
             .size(20)
             .horizontal_alignment(alignment::Horizontal::Center);
+        let new_vault = button("New Vault").on_press(GUIMessage::NewVault);
         let content = scrollable(column(self.vaults.iter().map(|v| {
             v.view()
                 .map(move |message| GUIMessage::VaultMessage(message, v.name.clone()))
         })));
 
         let info = self.temp_message.view();
-        let primary = container(column![header, content, info]);
+        let primary = container(column![header, new_vault, content, info]);
         modal(primary, top_layer)
             .backdrop(GUIMessage::Exit)
             .on_esc(GUIMessage::Exit)
@@ -191,6 +207,8 @@ enum InternalState {
     Password(PasswordState),
     Entry(EntryState),
     New(NewEntryState),
+    Prompt(PromptState),
+    // NewVault(NewVaultState),
 }
 
 impl From<PasswordState> for InternalState {
@@ -211,6 +229,18 @@ impl From<NewEntryState> for InternalState {
     }
 }
 
+impl From<PromptState> for InternalState {
+    fn from(value: PromptState) -> Self {
+        InternalState::Prompt(value)
+    }
+}
+
+// impl From<NewVaultState> for InternalState {
+//     fn from(value: NewVaultState) -> Self {
+//         InternalState::NewVault(value)
+//     }
+// }
+
 fn delayed_command(
     time: u64,
     callback: impl FnOnce(()) -> GUIMessage + 'static + MaybeSend,
@@ -229,6 +259,8 @@ impl InternalState {
             Self::Password(password_state) => password_state.view(),
             Self::New(new_state) => new_state.view(),
             Self::Entry(entry_state) => entry_state.view(),
+            Self::Prompt(prompt_state) => prompt_state.view(),
+            // Self::NewVault(new_vault_state) => new_vault_state.view(),
         }
     }
 }
@@ -257,15 +289,24 @@ impl Application for ManagerState {
                 connection::Event::Disconnected => {
                     self.state = ConnectionState::Disconnected;
                 }
-                connection::Event::ReceiveOutput(Output::Info(info)) => {
-                    println!("Received info: {:?}", info);
-                    self.update(info);
+                connection::Event::ReceiveOutput(output) => match output {
+                    Output::Info(info) => {
+                        println!("Received info: {:?}", info);
+                        self.update(info);
+                    }
+                    Output::Read(value) => {
+                        println!("Received read: {}", value);
+                        self.update_entry(value);
+                    }
+                    Output::Nothing => {}
+                    _ => todo!(),
+                },
+
+                connection::Event::ReceiveError => {
+                    println!("Encountered error");
+                    self.internal_state = vec![];
+                    self.temp_message = TempMessage::default();
                 }
-                connection::Event::ReceiveOutput(Output::Read(value)) => {
-                    println!("Received read: {}", value);
-                    self.update_entry(value);
-                }
-                _ => {}
             },
             // GUIMessage::Send(message) => self.send_message(vec![message]),
             GUIMessage::VaultMessage(message, vault) => match message {
@@ -294,11 +335,31 @@ impl Application for ManagerState {
                     self.internal_state
                         .push(NewEntryState::for_vault(vault).into());
                 }
+                VaultMessage::Delete => {
+                    if self.info.get(&vault).unwrap().is_empty() {
+                        self.send_message(vec![
+                            ManagerMessage::DeleteEmptyVault(vault),
+                            ManagerMessage::Info,
+                        ]);
+                        // self.temp_message = TempMessage::DeleteEmptyVault(vault);
+                    } else {
+                        self.temp_message = TempMessage::DeleteVault(vault);
+                    }
+                    if self.needs_password() {
+                        self.internal_state.push(PasswordState::default().into());
+                    }
+                }
             },
 
             GUIMessage::PasswordChanged(p) => {
                 if let Some(InternalState::Password(password_state)) = self.active_state_mut() {
                     password_state.password = p;
+                }
+            }
+
+            GUIMessage::PromptChanged(p) => {
+                if let Some(InternalState::Prompt(prompt_state)) = self.active_state_mut() {
+                    prompt_state.vault = p;
                 }
             }
 
@@ -399,6 +460,23 @@ impl Application for ManagerState {
                                 }
                             }
                         }
+                        // InternalState::NewVault(new_vault_state) => {
+                        //     if !self.info.data.contains_key(&new_vault_state.vault)
+                        //         && self.temp_message.complete()
+                        //     {
+                        //         let new_message =
+                        //             ManagerMessage::NewVault(new_vault_state.vault.clone());
+                        //         self.internal_state.push(PasswordState::default().into());
+                        //         self.send_message(vec![new_message])
+                        //     }
+                        // }
+                        InternalState::Prompt(prompt_state) => {
+                            if !self.info.data.contains_key(&prompt_state.vault) {
+                                let message = ManagerMessage::NewVault(prompt_state.vault.clone());
+                                self.send_message(vec![message, ManagerMessage::Info]);
+                                self.internal_state.pop();
+                            }
+                        }
                     }
                 }
             }
@@ -413,7 +491,15 @@ impl Application for ManagerState {
                                 TempMessage::Get(..) => {
                                     self.temp_message = TempMessage::default();
                                 }
-                                _ => {}
+                                TempMessage::DeleteVault(..) => {
+                                    self.temp_message = TempMessage::default();
+                                }
+                                TempMessage::DeleteEmptyVault(..) => {
+                                    self.temp_message = TempMessage::default();
+                                }
+                                TempMessage::Update(..) => {}
+                                TempMessage::New(..) => {}
+                                TempMessage::Empty => {}
                             }
                             self.internal_state.pop();
                         }
@@ -424,6 +510,9 @@ impl Application for ManagerState {
                         InternalState::New(_new_state) => {
                             self.temp_message = TempMessage::default();
                             self.internal_state = vec![];
+                        }
+                        InternalState::Prompt(_) => {
+                            self.internal_state.pop();
                         }
                     }
                 }
@@ -458,6 +547,7 @@ impl Application for ManagerState {
                 self.stored_clipboard = None;
                 return iced::clipboard::write(contents);
             }
+            GUIMessage::NewVault => self.internal_state.push(PromptState::default().into()),
         }
 
         Command::none()
