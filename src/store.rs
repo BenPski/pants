@@ -7,7 +7,7 @@ use zeroize::ZeroizeOnDrop;
 
 use crate::Password;
 
-pub type StoreHash = HashMap<String, String>;
+pub type StoreHash = HashMap<String, Secret<String>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence)]
 pub enum StoreChoice {
@@ -49,7 +49,7 @@ impl StoreChoice {
         match self {
             Self::Password => Store::Password(String::new().into()),
             Self::UsernamePassword => Store::UsernamePassword(
-                String::new(),
+                String::new().into(),
                 String::new().into(),
                 // StoreValue::Secret(String::new().into()),
             ),
@@ -64,7 +64,7 @@ impl StoreChoice {
 #[derive(Debug, Clone, Deserialize)]
 pub enum Store {
     Password(Secret<String>),
-    UsernamePassword(String, Secret<String>),
+    UsernamePassword(Secret<String>, Secret<String>),
 }
 
 impl Serialize for Store {
@@ -81,7 +81,7 @@ impl Serialize for Store {
             Self::UsernamePassword(u, p) => {
                 let mut state =
                     serializer.serialize_tuple_variant("Store", 1, "UsernamePassword", 2)?;
-                state.serialize_field(u)?;
+                state.serialize_field(u.expose_secret())?;
                 state.serialize_field(p.expose_secret())?;
                 state.end()
             }
@@ -111,12 +111,12 @@ impl Store {
         match self {
             Self::Password(p) => {
                 let mut map = HashMap::new();
-                map.insert("password".to_string(), p.expose_secret().into());
+                map.insert("password".to_string(), p.clone());
                 (StoreChoice::Password, map)
             }
             Self::UsernamePassword(u, p) => {
                 let mut map = HashMap::new();
-                map.insert("password".to_string(), p.expose_secret().into());
+                map.insert("password".to_string(), p.clone());
                 map.insert("username".to_string(), u.clone());
                 (StoreChoice::UsernamePassword, map)
             }

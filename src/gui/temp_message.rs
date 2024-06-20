@@ -4,8 +4,14 @@ use iced::{
     widget::{container, text},
     Element,
 };
+use secrecy::ExposeSecret;
 
-use crate::{manager_message::ManagerMessage, message::Message, store::StoreChoice, Password};
+use crate::{
+    manager_message::ManagerMessage,
+    message::Message,
+    store::{StoreChoice, StoreHash},
+    Password,
+};
 
 use super::gui_message::GUIMessage;
 
@@ -18,8 +24,8 @@ pub enum TempMessage {
     DeleteVault(String),
     DeleteEmptyVault(String),
     Get(String, String),
-    New(String, String, StoreChoice, HashMap<String, String>),
-    Update(String, String, StoreChoice, HashMap<String, String>),
+    New(String, String, StoreChoice, StoreHash),
+    Update(String, String, StoreChoice, StoreHash),
 }
 
 impl TempMessage {
@@ -41,7 +47,7 @@ impl TempMessage {
             Self::New(_, name, _, fields) => {
                 let mut filled = true;
                 for (_, value) in fields.iter() {
-                    if value.is_empty() {
+                    if value.expose_secret().is_empty() {
                         filled = false;
                         break;
                     }
@@ -51,7 +57,7 @@ impl TempMessage {
             Self::Update(_, name, _, fields) => {
                 let mut filled = true;
                 for (_, value) in fields.iter() {
-                    if value.is_empty() {
+                    if value.expose_secret().is_empty() {
                         filled = false;
                         break;
                     }

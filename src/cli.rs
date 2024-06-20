@@ -191,7 +191,7 @@ impl CliApp {
                                     }
                                     Store::UsernamePassword(ref user, ref pass) => {
                                         clipboard.set_text(pass.expose_secret())?;
-                                        println!("  username: {}", user);
+                                        println!("  username: {}", user.expose_secret());
                                         println!("  password: <Copied to clipboard>");
                                         thread::sleep(Duration::from_secs(config.clipboard_time));
                                     }
@@ -454,7 +454,7 @@ impl CliApp {
                     .prompt();
                 let username = username_input?;
                 let password = Self::get_store_password(spec)?;
-                Ok(Store::UsernamePassword(username, password))
+                Ok(Store::UsernamePassword(username.into(), password))
             }
             _ => Err(Box::new(SchemaError::BadType).into()),
         }

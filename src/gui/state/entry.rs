@@ -5,10 +5,12 @@ use iced::{
     Element, Length,
 };
 use iced_aw::Card;
+use secrecy::ExposeSecret;
 
 use crate::{
     gui::gui_message::GUIMessage,
     store::{Store, StoreChoice, StoreHash},
+    Password,
 };
 
 #[derive(Debug, Clone)]
@@ -26,10 +28,13 @@ impl EntryState {
         let data_input = match &self.choice {
             StoreChoice::Password => {
                 let prefix = text("Password:");
-                let password_input = text_input("Password", self.value.get("password").unwrap())
-                    .width(Length::Fill)
-                    .on_input(|v| GUIMessage::UpdateField("password".to_string(), v))
-                    .secure(self.hidden);
+                let password_input = text_input(
+                    "Password",
+                    self.value.get("password").unwrap().expose_secret(),
+                )
+                .width(Length::Fill)
+                .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()))
+                .secure(self.hidden);
                 let show_button = if self.hidden {
                     button("Show").on_press(GUIMessage::ShowPassword)
                 } else {
@@ -48,13 +53,19 @@ impl EntryState {
             StoreChoice::UsernamePassword => {
                 let username_prefix = text("Username:");
                 let password_prefix = text("Password:");
-                let username_input = text_input("Username", self.value.get("username").unwrap())
-                    .width(Length::Fill)
-                    .on_input(|v| GUIMessage::UpdateField("username".to_string(), v));
-                let password_input = text_input("Password", self.value.get("password").unwrap())
-                    .width(Length::Fill)
-                    .on_input(|v| GUIMessage::UpdateField("password".to_string(), v))
-                    .secure(self.hidden);
+                let username_input = text_input(
+                    "Username",
+                    self.value.get("username").unwrap().expose_secret(),
+                )
+                .width(Length::Fill)
+                .on_input(|v| GUIMessage::UpdateField("username".to_string(), v.into()));
+                let password_input = text_input(
+                    "Password",
+                    self.value.get("password").unwrap().expose_secret(),
+                )
+                .width(Length::Fill)
+                .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()))
+                .secure(self.hidden);
                 let show_button = if self.hidden {
                     button("Show").on_press(GUIMessage::ShowPassword)
                 } else {
@@ -91,10 +102,10 @@ impl EntryState {
         self.value = value;
     }
 
-    pub fn get_password(&self) -> Option<String> {
+    pub fn get_password(&self) -> Option<Password> {
         for (key, value) in self.value.iter() {
             if key == "password" {
-                return Some(value.to_string());
+                return Some(value.clone());
             }
         }
         None
@@ -103,7 +114,9 @@ impl EntryState {
     pub fn from_entry(vault: String, key: String, style: String) -> Self {
         let value = match style.as_str() {
             "password" => Store::Password(String::new().into()),
-            "username-password" => Store::UsernamePassword(String::new(), String::new().into()),
+            "username-password" => {
+                Store::UsernamePassword(String::new().into(), String::new().into())
+            }
             _ => panic!("unrecognized entry value {}", style),
         };
         let (choice, value) = value.split();

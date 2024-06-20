@@ -1,3 +1,5 @@
+use secrecy::Secret;
+
 use crate::{store::StoreChoice, Password};
 
 use super::{connection, vault::VaultMessage};
@@ -16,9 +18,9 @@ pub enum GUIMessage {
     PasswordConfirmChanged(Password),
     ChangeName(String),
     SelectStyle(StoreChoice),
-    UpdateField(String, String),
+    UpdateField(String, Secret<String>),
     GeneratePassword,
-    CopyClipboard(Option<String>),
+    CopyClipboard(Option<Password>),
     ClearClipboard,
     Event(connection::Event),
     // Send(Message),

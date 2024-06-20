@@ -25,6 +25,7 @@ use iced::{
 use iced_aw::modal;
 use iced_futures::MaybeSend;
 use pants_gen::password::PasswordSpec;
+use secrecy::{ExposeSecret, Secret};
 
 use super::prompt::PromptState;
 
@@ -34,7 +35,7 @@ pub struct ManagerState {
     vaults: Vec<Vault>,
     internal_state: Vec<InternalState>,
     temp_message: TempMessage,
-    stored_clipboard: Option<String>,
+    stored_clipboard: Option<Password>,
     state: ConnectionState,
 }
 
@@ -390,26 +391,26 @@ impl Application for ManagerState {
             GUIMessage::UpdateField(k, v) => {
                 match self.active_state_mut() {
                     Some(InternalState::New(new_state)) => {
-                        new_state.value.insert(k.clone(), v.clone());
+                        new_state.value.insert(k.clone(), v.clone().into());
                     }
                     Some(InternalState::Entry(entry_state)) => {
-                        entry_state.value.insert(k.clone(), v.clone());
+                        entry_state.value.insert(k.clone(), v.clone().into());
                     }
                     _ => {}
                 };
                 match &mut self.temp_message {
                     TempMessage::New(_, _, _, ref mut value) => {
-                        value.insert(k, v);
+                        value.insert(k, v.into());
                     }
                     TempMessage::Update(_, _, _, ref mut value) => {
-                        value.insert(k, v);
+                        value.insert(k, v.into());
                     }
                     _ => {}
                 };
             }
             GUIMessage::GeneratePassword => {
                 let spec = PasswordSpec::from_str(&self.config.password_spec).unwrap();
-                let password = spec.generate().unwrap();
+                let password: Secret<String> = spec.generate().unwrap().into();
                 match self.active_state_mut() {
                     Some(InternalState::New(new_state)) => {
                         new_state
@@ -544,8 +545,10 @@ impl Application for ManagerState {
                 if let Some(InternalState::Entry(entry_state)) = self.active_state_mut() {
                     if let Some(p) = entry_state.get_password() {
                         return Command::batch(vec![
-                            iced::clipboard::read(GUIMessage::CopyClipboard),
-                            iced::clipboard::write(p),
+                            iced::clipboard::read(|s| {
+                                GUIMessage::CopyClipboard(s.map(|x| x.into()))
+                            }),
+                            iced::clipboard::write(p.expose_secret().into()),
                             delayed_command(self.config.clipboard_time, |_| {
                                 GUIMessage::ClearClipboard
                             }),
@@ -555,9 +558,12 @@ impl Application for ManagerState {
             }
             GUIMessage::CopyClipboard(data) => self.stored_clipboard = data,
             GUIMessage::ClearClipboard => {
-                let contents = self.stored_clipboard.clone().unwrap_or_default();
+                let contents: Secret<String> = self
+                    .stored_clipboard
+                    .clone()
+                    .unwrap_or_else(|| Secret::new(String::new()));
                 self.stored_clipboard = None;
-                return iced::clipboard::write(contents);
+                return iced::clipboard::write(contents.expose_secret().into());
             }
             GUIMessage::NewVault => self.internal_state.push(PromptState::default().into()),
         }
