@@ -226,10 +226,18 @@ impl CliApp {
                 Ok(())
             }
             Output::Info(data) => {
-                for (vault, schema) in data {
-                    println!("{}:", vault);
-                    for (key, value) in schema.data.iter() {
-                        println!("  {}: {}", key, value);
+                if data.data.is_empty() {
+                    println!("No vaults created yet");
+                } else {
+                    for (vault, schema) in data {
+                        if schema.is_empty() {
+                            println!("{}: no entries", vault);
+                        } else {
+                            println!("{}:", vault);
+                            for (key, value) in schema.data.iter() {
+                                println!("  {}: {}", key, value);
+                            }
+                        }
                     }
                 }
                 Ok(())
