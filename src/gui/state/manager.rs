@@ -15,6 +15,7 @@ use crate::{
     output::Output,
     reads::Reads,
     store::{Store, StoreChoice},
+    Password,
 };
 use iced::{
     alignment,
@@ -24,6 +25,7 @@ use iced::{
 use iced_aw::modal;
 use iced_futures::MaybeSend;
 use pants_gen::password::PasswordSpec;
+use secrecy::{ExposeSecret, Secret};
 
 use super::prompt::PromptState;
 
@@ -33,7 +35,7 @@ pub struct ManagerState {
     vaults: Vec<Vault>,
     internal_state: Vec<InternalState>,
     temp_message: TempMessage,
-    stored_clipboard: Option<String>,
+    stored_clipboard: Option<Password>,
     state: ConnectionState,
 }
 
@@ -58,7 +60,7 @@ enum ConnectionState {
 }
 
 impl ManagerState {
-    fn get_password(&self) -> Option<String> {
+    fn get_password(&self) -> Option<Password> {
         for state in &self.internal_state {
             if let InternalState::Password(p) = state {
                 return Some(p.password.clone());
@@ -66,7 +68,7 @@ impl ManagerState {
         }
         None
     }
-    fn handle_password_submit(&mut self, password: String) {
+    fn handle_password_submit(&mut self, password: Password) {
         let messages = match &self.temp_message {
             TempMessage::Get(vault, key) => {
                 let message = self.temp_message.with_password(password);
@@ -295,7 +297,7 @@ impl Application for ManagerState {
                         self.update(info);
                     }
                     Output::Read(value) => {
-                        println!("Received read: {}", value);
+                        println!("Received read: {:?}", value);
                         self.update_entry(value);
                     }
                     Output::Nothing => {}
@@ -408,7 +410,7 @@ impl Application for ManagerState {
             }
             GUIMessage::GeneratePassword => {
                 let spec = PasswordSpec::from_str(&self.config.password_spec).unwrap();
-                let password = spec.generate().unwrap();
+                let password: Secret<String> = spec.generate().unwrap().into();
                 match self.active_state_mut() {
                     Some(InternalState::New(new_state)) => {
                         new_state
@@ -480,7 +482,9 @@ impl Application for ManagerState {
                         //     }
                         // }
                         InternalState::Prompt(prompt_state) => {
-                            if !self.info.data.contains_key(&prompt_state.vault) {
+                            if !self.info.data.contains_key(&prompt_state.vault)
+                                && !prompt_state.vault.is_empty()
+                            {
                                 let message = ManagerMessage::NewVault(prompt_state.vault.clone());
                                 self.send_message(vec![message, ManagerMessage::Info]);
                                 self.internal_state.pop();
@@ -541,8 +545,10 @@ impl Application for ManagerState {
                 if let Some(InternalState::Entry(entry_state)) = self.active_state_mut() {
                     if let Some(p) = entry_state.get_password() {
                         return Command::batch(vec![
-                            iced::clipboard::read(GUIMessage::CopyClipboard),
-                            iced::clipboard::write(p),
+                            iced::clipboard::read(|s| {
+                                GUIMessage::CopyClipboard(s.map(|x| x.into()))
+                            }),
+                            iced::clipboard::write(p.expose_secret().into()),
                             delayed_command(self.config.clipboard_time, |_| {
                                 GUIMessage::ClearClipboard
                             }),
@@ -552,9 +558,12 @@ impl Application for ManagerState {
             }
             GUIMessage::CopyClipboard(data) => self.stored_clipboard = data,
             GUIMessage::ClearClipboard => {
-                let contents = self.stored_clipboard.clone().unwrap_or_default();
+                let contents: Secret<String> = self
+                    .stored_clipboard
+                    .clone()
+                    .unwrap_or_else(|| Secret::new(String::new()));
                 self.stored_clipboard = None;
-                return iced::clipboard::write(contents);
+                return iced::clipboard::write(contents.expose_secret().into());
             }
             GUIMessage::NewVault => self.internal_state.push(PromptState::default().into()),
         }

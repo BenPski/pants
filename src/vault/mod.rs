@@ -21,6 +21,19 @@ pub struct Vault {
     data: BTreeMap<String, Store>,
 }
 
+// impl Serialize for Vault {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         let mut map = BTreeMap::new();
+//         for (k, v) in &self.data {
+//             map.insert(k, v.expose());
+//         }
+//         map.serialize(serializer)
+//     }
+// }
+
 impl Default for Vault {
     fn default() -> Self {
         Self::new()

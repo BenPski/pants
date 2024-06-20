@@ -114,6 +114,8 @@
 //! Other commands include:
 //!  - backup: creates a backup of the current vault
 //!  - gen: exposes the password generator in [pants-gen](https://docs.rs/pants-gen/)
+
+use secrecy::Secret;
 pub mod action;
 pub mod cli;
 pub mod command;
@@ -133,4 +135,4 @@ pub mod store;
 pub mod utils;
 pub mod vault;
 
-pub type Password = String;
+pub type Password = Secret<String>;

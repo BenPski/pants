@@ -1,7 +1,10 @@
 use std::{collections::HashMap, fmt::Display};
 
 use enum_iterator::{all, Sequence};
-use serde::{Deserialize, Serialize};
+use secrecy::{ExposeSecret, Secret};
+use serde::{ser::SerializeTupleVariant, Deserialize, Serialize};
+
+pub type StoreHash = HashMap<String, Secret<String>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence)]
 pub enum StoreChoice {
@@ -25,24 +28,28 @@ impl Default for StoreChoice {
 }
 
 impl StoreChoice {
-    pub fn convert(&self, data: &HashMap<String, String>) -> Option<Store> {
+    pub fn convert(&self, data: &StoreHash) -> Option<Store> {
         match self {
             Self::Password => {
                 let p = data.get("password")?;
-                Some(Store::Password(p.to_string()))
+                Some(Store::Password(p.clone()))
             }
             Self::UsernamePassword => {
                 let p = data.get("password")?;
                 let u = data.get("username")?;
-                Some(Store::UsernamePassword(u.to_string(), p.to_string()))
+                Some(Store::UsernamePassword(u.clone(), p.clone()))
             }
         }
     }
 
     pub fn convert_default(&self) -> Store {
         match self {
-            Self::Password => Store::Password(String::new()),
-            Self::UsernamePassword => Store::UsernamePassword(String::new(), String::new()),
+            Self::Password => Store::Password(String::new().into()),
+            Self::UsernamePassword => Store::UsernamePassword(
+                String::new().into(),
+                String::new().into(),
+                // StoreValue::Secret(String::new().into()),
+            ),
         }
     }
 
@@ -51,20 +58,42 @@ impl StoreChoice {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize)]
 pub enum Store {
-    Password(String),
-    UsernamePassword(String, String),
+    Password(Secret<String>),
+    UsernamePassword(Secret<String>, Secret<String>),
 }
 
-impl Display for Store {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Serialize for Store {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
         match self {
-            Self::Password(p) => write!(f, "{}", p),
-            Self::UsernamePassword(username, password) => write!(f, "{}: {}", username, password),
+            Self::Password(p) => {
+                let mut state = serializer.serialize_tuple_variant("Store", 0, "Password", 1)?;
+                state.serialize_field(p.expose_secret())?;
+                state.end()
+            }
+            Self::UsernamePassword(u, p) => {
+                let mut state =
+                    serializer.serialize_tuple_variant("Store", 1, "UsernamePassword", 2)?;
+                state.serialize_field(u.expose_secret())?;
+                state.serialize_field(p.expose_secret())?;
+                state.end()
+            }
         }
     }
 }
+
+// impl Display for Store {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             Self::Password(p) => write!(f, "{}", p),
+//             Self::UsernamePassword(username, password) => write!(f, "{}: {}", username, password),
+//         }
+//     }
+// }
 
 impl Store {
     // how to represent the type in the schema
@@ -75,17 +104,17 @@ impl Store {
         }
     }
 
-    pub fn split(&self) -> (StoreChoice, HashMap<String, String>) {
+    pub fn split(&self) -> (StoreChoice, StoreHash) {
         match self {
             Self::Password(p) => {
                 let mut map = HashMap::new();
-                map.insert("password".to_string(), p.to_string());
+                map.insert("password".to_string(), p.clone());
                 (StoreChoice::Password, map)
             }
             Self::UsernamePassword(u, p) => {
                 let mut map = HashMap::new();
-                map.insert("password".to_string(), p.to_string());
-                map.insert("username".to_string(), u.to_string());
+                map.insert("password".to_string(), p.clone());
+                map.insert("username".to_string(), u.clone());
                 (StoreChoice::UsernamePassword, map)
             }
         }
@@ -95,7 +124,17 @@ impl Store {
         self.split().0
     }
 
-    pub fn as_hash(&self) -> HashMap<String, String> {
+    pub fn as_hash(&self) -> StoreHash {
         self.split().1
     }
+
+    // pub fn expose(&self) -> StoreOpen {
+    //     match self {
+    //         Self::Password(StoreValue::Secret(p)) => StoreOpen::Password(p.expose_secret().into()),
+    //         Self::UsernamePassword(StoreValue::Value(u), StoreValue::Secret(p)) => {
+    //             StoreOpen::UsernamePassword(u.into(), p.expose_secret().into())
+    //         }
+    //         _ => panic!("Malformed store"),
+    //     }
+    // }
 }

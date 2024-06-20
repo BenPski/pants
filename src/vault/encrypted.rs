@@ -6,6 +6,7 @@ use crate::{
     action::Record,
     secure::{Encrypted, SecureData},
     vault::Vault,
+    Password,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,7 +28,7 @@ impl<Data> SecureData for PasswordEncrypted<Data> {
 pub type VaultEncrypted = PasswordEncrypted<Vault>;
 
 impl VaultEncrypted {
-    pub fn new(password: String) -> anyhow::Result<Self> {
+    pub fn new(password: Password) -> anyhow::Result<Self> {
         let salt = SaltString::generate(&mut OsRng).to_string();
         let key = Self::get_key(&salt, password);
         Encrypted::encrypt(&Vault::new(), key).map(|vault| Self { data: vault, salt })
@@ -47,7 +48,7 @@ impl VaultEncrypted {
 pub type RecordEncrypted = PasswordEncrypted<Record>;
 
 impl RecordEncrypted {
-    pub fn new(password: String) -> anyhow::Result<Self> {
+    pub fn new(password: Password) -> anyhow::Result<Self> {
         let salt = SaltString::generate(&mut OsRng).to_string();
         let key = Self::get_key(&salt, password);
         Encrypted::encrypt(&Record::new(), key).map(|vault| Self { data: vault, salt })

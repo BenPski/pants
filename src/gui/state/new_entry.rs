@@ -1,19 +1,21 @@
-use std::collections::HashMap;
-
 use iced::{
     widget::{button, column, container, pick_list, row, text, text_input},
     Element, Length,
 };
 use iced_aw::Card;
+use secrecy::ExposeSecret;
 
-use crate::{gui::gui_message::GUIMessage, store::StoreChoice};
+use crate::{
+    gui::gui_message::GUIMessage,
+    store::{StoreChoice, StoreHash},
+};
 
 #[derive(Debug, Clone)]
 pub struct NewEntryState {
     pub vault: String,
     pub name: String,
     pub choice: StoreChoice,
-    pub value: HashMap<String, String>,
+    pub value: StoreHash,
 }
 
 impl Default for NewEntryState {
@@ -48,9 +50,12 @@ impl NewEntryState {
         let data_input = match &self.choice {
             StoreChoice::Password => {
                 let prefix = text("Password:");
-                let password_input = text_input("Password", self.value.get("password").unwrap())
-                    .width(Length::Fill)
-                    .on_input(|v| GUIMessage::UpdateField("password".to_string(), v));
+                let password_input = text_input(
+                    "Password",
+                    self.value.get("password").unwrap().expose_secret(),
+                )
+                .width(Length::Fill)
+                .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()));
                 let password_generate = button("Generate").on_press(GUIMessage::GeneratePassword);
 
                 container(row![prefix, password_input, password_generate])
@@ -58,12 +63,18 @@ impl NewEntryState {
             StoreChoice::UsernamePassword => {
                 let username_prefix = text("Username:");
                 let password_prefix = text("Password:");
-                let username_input = text_input("Username", self.value.get("username").unwrap())
-                    .width(Length::Fill)
-                    .on_input(|v| GUIMessage::UpdateField("username".to_string(), v));
-                let password_input = text_input("Password", self.value.get("password").unwrap())
-                    .width(Length::Fill)
-                    .on_input(|v| GUIMessage::UpdateField("password".to_string(), v));
+                let username_input = text_input(
+                    "Username",
+                    self.value.get("username").unwrap().expose_secret(),
+                )
+                .width(Length::Fill)
+                .on_input(|v| GUIMessage::UpdateField("username".to_string(), v.into()));
+                let password_input = text_input(
+                    "Password",
+                    self.value.get("password").unwrap().expose_secret(),
+                )
+                .width(Length::Fill)
+                .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()));
 
                 let password_generate = button("Generate").on_press(GUIMessage::GeneratePassword);
                 container(column![

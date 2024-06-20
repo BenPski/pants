@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::{file::BackupFile, info::Info, reads::Reads, schema::Schema, store::Store};
 
 #[derive(Debug, Clone)]
@@ -111,45 +109,45 @@ impl From<Info> for Output {
 //     }
 // }
 
-impl Display for Output {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Info(info) => {
-                for (vault, schema) in info.data.iter() {
-                    writeln!(f, "{}:", vault)?;
-                    for (key, value) in schema.data.iter() {
-                        writeln!(f, "  {}: {}", key, value)?;
-                    }
-                }
-                Ok(())
-            }
-            Self::Nothing => write!(f, ""),
-            Self::Backup(path) => write!(f, "Backed up to {}", path),
-            Self::List(items) => {
-                if items.is_empty() {
-                    write!(f, "No entries")
-                } else {
-                    for item in items {
-                        writeln!(f, "{}", item)?;
-                    }
-                    Ok(())
-                }
-            }
-            Self::Read(reads) => {
-                write!(f, "{}", reads)
-            }
-            Self::BackupFiles(items) => {
-                for item in items {
-                    writeln!(f, "{}", item)?;
-                }
-                Ok(())
-            }
-            Self::Schema(schema) => {
-                for (key, value) in schema.data.iter() {
-                    writeln!(f, "{}: {}", key, value)?;
-                }
-                Ok(())
-            }
-        }
-    }
-}
+// impl Display for Output {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             Self::Info(info) => {
+//                 for (vault, schema) in info.data.iter() {
+//                     writeln!(f, "{}:", vault)?;
+//                     for (key, value) in schema.data.iter() {
+//                         writeln!(f, "  {}: {}", key, value)?;
+//                     }
+//                 }
+//                 Ok(())
+//             }
+//             Self::Nothing => write!(f, ""),
+//             Self::Backup(path) => write!(f, "Backed up to {}", path),
+//             Self::List(items) => {
+//                 if items.is_empty() {
+//                     write!(f, "No entries")
+//                 } else {
+//                     for item in items {
+//                         writeln!(f, "{}", item)?;
+//                     }
+//                     Ok(())
+//                 }
+//             }
+//             Self::Read(reads) => {
+//                 write!(f, "{}", reads)
+//             }
+//             Self::BackupFiles(items) => {
+//                 for item in items {
+//                     writeln!(f, "{}", item)?;
+//                 }
+//                 Ok(())
+//             }
+//             Self::Schema(schema) => {
+//                 for (key, value) in schema.data.iter() {
+//                     writeln!(f, "{}: {}", key, value)?;
+//                 }
+//                 Ok(())
+//             }
+//         }
+//     }
+// }
