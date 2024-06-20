@@ -185,12 +185,12 @@ impl CliApp {
                                 println!("{}", key);
                                 match value {
                                     Store::Password(ref pass) => {
-                                        clipboard.set_text(pass)?;
+                                        clipboard.set_text(pass.expose_secret())?;
                                         println!("  password: <Copied to clipboard>");
                                         thread::sleep(Duration::from_secs(config.clipboard_time));
                                     }
                                     Store::UsernamePassword(ref user, ref pass) => {
-                                        clipboard.set_text(pass)?;
+                                        clipboard.set_text(pass.expose_secret())?;
                                         println!("  username: {}", user);
                                         println!("  password: <Copied to clipboard>");
                                         thread::sleep(Duration::from_secs(config.clipboard_time));
@@ -202,7 +202,7 @@ impl CliApp {
                             thread::sleep(Duration::from_secs(1));
                         }
                         OutputStyle::Raw => {
-                            println!("{}", reads);
+                            println!("{:?}", reads);
                         }
                         OutputStyle::None => {}
                     }
@@ -447,19 +447,14 @@ impl CliApp {
 
     fn prompt(repr: &str, spec: PasswordSpec) -> anyhow::Result<Store> {
         match repr {
-            "password" => {
-                Self::get_store_password(spec).map(|s| Store::Password(s.expose_secret().into()))
-            }
+            "password" => Self::get_store_password(spec).map(|s| Store::Password(s)),
             "username-password" => {
                 let username_input = inquire::Text::new("Username:")
                     .with_help_message("New username")
                     .prompt();
                 let username = username_input?;
                 let password = Self::get_store_password(spec)?;
-                Ok(Store::UsernamePassword(
-                    username,
-                    password.expose_secret().into(),
-                ))
+                Ok(Store::UsernamePassword(username, password))
             }
             _ => Err(Box::new(SchemaError::BadType).into()),
         }

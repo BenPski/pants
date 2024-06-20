@@ -102,8 +102,8 @@ impl EntryState {
 
     pub fn from_entry(vault: String, key: String, style: String) -> Self {
         let value = match style.as_str() {
-            "password" => Store::Password(String::new()),
-            "username-password" => Store::UsernamePassword(String::new(), String::new()),
+            "password" => Store::Password(String::new().into()),
+            "username-password" => Store::UsernamePassword(String::new(), String::new().into()),
             _ => panic!("unrecognized entry value {}", style),
         };
         let (choice, value) = value.split();

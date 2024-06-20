@@ -296,7 +296,7 @@ impl Application for ManagerState {
                         self.update(info);
                     }
                     Output::Read(value) => {
-                        println!("Received read: {}", value);
+                        println!("Received read: {:?}", value);
                         self.update_entry(value);
                     }
                     Output::Nothing => {}
