@@ -5,7 +5,7 @@ use figment::{
 use pants_gen::password::PasswordSpec;
 use serde::{Deserialize, Serialize};
 
-use super::internal_config::InternalConfig;
+use super::internal_config::{BaseConfig, InternalConfig};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientConfig {
@@ -28,6 +28,8 @@ impl<'de> InternalConfig<'de> for ClientConfig {
         "client.toml".to_string()
     }
 }
+
+impl<'de> BaseConfig<'de> for ClientConfig {}
 
 impl Provider for ClientConfig {
     fn metadata(&self) -> Metadata {

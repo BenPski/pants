@@ -7,13 +7,15 @@ use inquire::Confirm;
 use pants_gen::password::PasswordSpec;
 
 use crate::{
-    config::{client_config::ClientConfig, internal_config::InternalConfig},
+    config::{client_config::ClientConfig, internal_config::BaseConfig},
     errors::{ClientError, CommunicationError, SchemaError},
+    info::Info,
+    manager_message::ManagerMessage,
     message::Message,
     output::Output,
     schema::Schema,
     store::Store,
-    vault::interface::VaultInterface,
+    vault::manager::VaultManager,
     Password,
 };
 
@@ -35,8 +37,12 @@ pub struct CliArgs {
 
 #[derive(Subcommand)]
 pub enum CLICommands {
+    /// create new vault
+    New { name: String },
     /// create new entry
-    New {
+    Add {
+        /// name of the vault
+        vault: String,
         #[command(subcommand)]
         style: EntryStyle,
         /// specify a password spec string to be used over the configured one
@@ -44,9 +50,17 @@ pub enum CLICommands {
         spec: Option<String>,
     },
     /// lookup the given entry
-    Get { key: String },
+    Get {
+        /// name of the vault
+        vault: String,
+        /// name of the entry
+        key: String,
+    },
     /// update the entry
     Update {
+        /// name of the vault
+        vault: String,
+        /// name of the entry
         key: String,
         // #[command(subcommand)]
         // password: Option<Generate>,
@@ -54,17 +68,32 @@ pub enum CLICommands {
         #[arg(long)]
         spec: Option<String>,
     },
-    /// delete the entry
-    Delete { key: String },
-    /// list the entries in the vault
-    List,
+    /// delete a vault/entry
+    Delete {
+        /// name of the vault
+        vault: String,
+        /// name of the entry
+        key: Option<String>,
+    },
+    /// list the vaults/entries
+    List {
+        /// name of vault to list entries of
+        vault: Option<String>,
+    },
     /// interact with backups, defaults to creating a new backup
     Backup {
+        /// name of the vault
+        vault: String,
+        /// how to interact with backups (nothing => make backup, list => list available backups,
+        /// restore => copy in a backup)
         #[command(subcommand)]
         option: Option<BackupCommand>,
     },
     /// rotate master password for the vault
-    Rotate, // Transaction,
+    Rotate {
+        /// name of the vault
+        vault: String,
+    }, // Transaction,
     /// generate password
     Gen(pants_gen::cli::CliArgs),
 }
@@ -92,14 +121,14 @@ pub enum BackupCommand {
 pub struct CliApp {
     args: CliArgs,
     config: ClientConfig,
-    interface: VaultInterface,
+    interface: VaultManager,
 }
 
 impl CliApp {
     pub fn run() {
         let args = CliArgs::parse();
-        let config: ClientConfig = ClientConfig::load_err();
-        let interface = VaultInterface::new();
+        let config = <ClientConfig as BaseConfig>::load_err();
+        let interface = VaultManager::default();
         let app = CliApp {
             args,
             config,
@@ -117,26 +146,37 @@ impl CliApp {
                     println!("Could not satisfy password spec constraints");
                 }
             }
-            ref command => match self.process(command) {
-                Ok(()) => (),
-                Err(e) => {
-                    println!("Encountered error: {}", e);
-                    exit(1)
+            ref command => {
+                match Self::process(&self.config, &self.args.output, self.interface, command) {
+                    Ok(()) => (),
+                    Err(e) => {
+                        println!("Encountered error: {}", e);
+                        exit(1)
+                    }
                 }
-            },
+            }
         }
     }
-    fn process(&self, command: &CLICommands) -> anyhow::Result<()> {
-        let message = self.construct_message(command)?;
-        let output = self.interface.receive(message)?;
-        self.handle_output(output)
+    fn process(
+        config: &ClientConfig,
+        output_style: &OutputStyle,
+        mut manager: VaultManager,
+        command: &CLICommands,
+    ) -> anyhow::Result<()> {
+        let message = Self::construct_message(&mut manager, config, command)?;
+        let output = manager.receive(message)?;
+        Self::handle_output(config, output_style, output)
     }
-    fn handle_output(&self, output: Output) -> anyhow::Result<()> {
+    fn handle_output(
+        config: &ClientConfig,
+        output_style: &OutputStyle,
+        output: Output,
+    ) -> anyhow::Result<()> {
         match output {
             Output::Nothing => Ok(()),
             Output::Read(reads) => {
                 if !reads.data.is_empty() {
-                    match self.args.output {
+                    match output_style {
                         OutputStyle::Clipboard => {
                             let mut clipboard = Clipboard::new()?;
                             let orig = clipboard.get_text().unwrap_or("".to_string());
@@ -146,17 +186,13 @@ impl CliApp {
                                     Store::Password(pass) => {
                                         clipboard.set_text(pass)?;
                                         println!("  password: <Copied to clipboard>");
-                                        thread::sleep(Duration::from_secs(
-                                            self.config.clipboard_time,
-                                        ));
+                                        thread::sleep(Duration::from_secs(config.clipboard_time));
                                     }
                                     Store::UsernamePassword(user, pass) => {
                                         clipboard.set_text(pass)?;
                                         println!("  username: {}", user);
                                         println!("  password: <Copied to clipboard>");
-                                        thread::sleep(Duration::from_secs(
-                                            self.config.clipboard_time,
-                                        ));
+                                        thread::sleep(Duration::from_secs(config.clipboard_time));
                                     }
                                 }
                             }
@@ -189,6 +225,23 @@ impl CliApp {
                 println!("{}", schema);
                 Ok(())
             }
+            Output::Info(data) => {
+                if data.data.is_empty() {
+                    println!("No vaults created yet");
+                } else {
+                    for (vault, schema) in data {
+                        if schema.is_empty() {
+                            println!("{}: no entries", vault);
+                        } else {
+                            println!("{}:", vault);
+                            for (key, value) in schema.data.iter() {
+                                println!("  {}: {}", key, value);
+                            }
+                        }
+                    }
+                }
+                Ok(())
+            }
             Output::Backup(backup) => {
                 println!("Backed up to: {}", backup);
                 Ok(())
@@ -201,96 +254,175 @@ impl CliApp {
             }
         }
     }
-    fn construct_message(&self, command: &CLICommands) -> anyhow::Result<Message> {
+    fn construct_message(
+        manager: &mut VaultManager,
+        config: &ClientConfig,
+        command: &CLICommands,
+    ) -> anyhow::Result<ManagerMessage> {
         match command {
-            CLICommands::Get { key } => {
+            CLICommands::New { name } => Ok(ManagerMessage::NewVault(name.into())),
+            CLICommands::Get { vault, key } => {
                 let password = Self::get_password("Vault password:")?;
-                Ok(Message::Get(password, key.to_string()))
+                Ok(ManagerMessage::VaultMessage(
+                    vault.to_string(),
+                    Message::Get(password, key.to_string()),
+                ))
             }
-            CLICommands::Update { key, spec } => {
-                let schema = self.get_schema()?;
+            CLICommands::Update { vault, key, spec } => {
+                let schema = Self::get_schema(manager, vault.into())?;
                 match schema.get(key) {
                     None => Err(Box::new(CommunicationError::NoEntry).into()),
                     Some(style) => {
                         let spec = PasswordSpec::from_str(
-                            &spec
-                                .clone()
-                                .unwrap_or_else(|| self.config.password_spec.clone()),
+                            &spec.clone().unwrap_or_else(|| config.password_spec.clone()),
                         )?;
-                        let value = self.prompt(style, spec)?;
+                        let value = Self::prompt(style, spec)?;
                         let password = Self::get_password("Vault password:")?;
-                        Ok(Message::Update(password, key.to_string(), value))
+                        Ok(ManagerMessage::VaultMessage(
+                            vault.into(),
+                            Message::Update(password, key.to_string(), value),
+                        ))
                     }
                 }
             }
-            CLICommands::Delete { key } => {
-                let password = Self::get_password("Vault password:")?;
-                Ok(Message::Delete(password, key.to_string()))
+            CLICommands::Delete { vault, key } => {
+                if let Some(key) = key {
+                    let password = Self::get_password("Vault password:")?;
+                    Ok(ManagerMessage::VaultMessage(
+                        vault.into(),
+                        Message::Delete(password, key.to_string()),
+                    ))
+                } else {
+                    let choice =
+                        Confirm::new("Are you sure you want to delete the whole vault?").prompt();
+                    let schema = Self::get_schema(manager, vault.into())?;
+                    if schema.is_empty() {
+                        Ok(ManagerMessage::DeleteEmptyVault(vault.into()))
+                    } else {
+                        let password = Self::get_password("Vault password:")?;
+                        match choice {
+                            Ok(true) => Ok(ManagerMessage::DeleteVault(vault.into(), password)),
+                            _ => Ok(ManagerMessage::Empty),
+                        }
+                    }
+                }
             }
-            CLICommands::New { style, spec } => {
-                let schema = self.get_schema()?;
-                let spec = PasswordSpec::from_str(
-                    &spec.clone().unwrap_or(self.config.password_spec.clone()),
-                )?;
+            CLICommands::Add { vault, style, spec } => {
+                let info = Self::get_info(manager)?;
+                let schema = info.get(vault).cloned().unwrap_or(Schema::default());
+                let new_vault = !info.data.contains_key(vault);
+                let confirm_password = new_vault || schema.is_empty();
+                if new_vault {
+                    manager.receive(ManagerMessage::NewVault(vault.into()))?;
+                }
+                let spec =
+                    PasswordSpec::from_str(&spec.clone().unwrap_or(config.password_spec.clone()))?;
                 match style {
-                    EntryStyle::Password { name } => {
-                        self.handle_new(schema, name.to_string(), "password", spec)
-                    }
-                    EntryStyle::UsernamePassword { name } => {
-                        self.handle_new(schema, name.to_string(), "username-password", spec)
-                    }
+                    EntryStyle::Password { name } => Self::handle_new(
+                        confirm_password,
+                        vault.into(),
+                        schema,
+                        name.to_string(),
+                        "password",
+                        spec,
+                    ),
+                    EntryStyle::UsernamePassword { name } => Self::handle_new(
+                        confirm_password,
+                        vault.into(),
+                        schema,
+                        name.to_string(),
+                        "username-password",
+                        spec,
+                    ),
                 }
             }
-            CLICommands::Rotate => {
+            CLICommands::Rotate { vault } => {
                 let password = Self::get_password("Vault password:")?;
                 let new_password = Self::get_password_confirm("New vault password:")?;
-                Ok(Message::Rotate(password, new_password))
+                Ok(ManagerMessage::VaultMessage(
+                    vault.into(),
+                    Message::Rotate(password, new_password),
+                ))
             }
-            CLICommands::Backup { option } => match option {
+            CLICommands::Backup { vault, option } => match option {
                 None => {
                     let password = Self::get_password("Vault password:")?;
-                    Ok(Message::Backup(password))
+                    Ok(ManagerMessage::VaultMessage(
+                        vault.into(),
+                        Message::Backup(password),
+                    ))
                 }
-                Some(BackupCommand::List) => Ok(Message::BackupList),
+                Some(BackupCommand::List) => Ok(ManagerMessage::VaultMessage(
+                    vault.into(),
+                    Message::BackupList,
+                )),
                 Some(BackupCommand::Restore) => {
-                    match self.interface.receive(Message::BackupList)? {
+                    match manager.receive(ManagerMessage::VaultMessage(
+                        vault.into(),
+                        Message::BackupList,
+                    ))? {
                         Output::BackupFiles(files) => {
                             let backup_file = inquire::Select::new("Restore from:", files)
                                 .with_help_message("Choose the backup file to restore from")
                                 .prompt()?;
                             let password = Self::get_password("Current password")?;
                             let backup_password = Self::get_password("Backup's password:")?;
-                            Ok(Message::Restore(password, backup_password, backup_file))
+                            Ok(ManagerMessage::VaultMessage(
+                                vault.into(),
+                                Message::Restore(password, backup_password, backup_file),
+                            ))
                         }
                         _ => Err(Box::new(CommunicationError::UnexpectedOutput).into()),
                     }
                 }
             },
-            CLICommands::List => Ok(Message::Schema),
+            // CLICommands::List => Ok(Message::Schema),
+            CLICommands::List { vault } => {
+                if let Some(name) = vault {
+                    Ok(ManagerMessage::VaultMessage(name.into(), Message::Schema))
+                } else {
+                    Ok(ManagerMessage::Info)
+                }
+            }
             CLICommands::Gen(_) => panic!("Should have branched before this"),
         }
     }
 
     fn handle_new(
-        &self,
+        new_vault: bool,
+        vault: String,
         schema: Schema,
         key: String,
         style: &str,
         spec: PasswordSpec,
-    ) -> anyhow::Result<Message> {
+    ) -> anyhow::Result<ManagerMessage> {
         match schema.get(&key) {
             None => {
-                let value = self.prompt(style, spec)?;
-                let password = Self::get_password("Vault password:")?;
-                Ok(Message::Update(password, key, value))
+                let value = Self::prompt(style, spec)?;
+                let password = if new_vault {
+                    Self::get_password_confirm("New vault password:")?
+                } else {
+                    Self::get_password("Vault password:")?
+                };
+                Ok(ManagerMessage::VaultMessage(
+                    vault,
+                    Message::Update(password, key, value),
+                ))
             }
             Some(_) => Err(Box::new(CommunicationError::ExistingEntry).into()),
         }
     }
 
-    fn get_schema(&self) -> anyhow::Result<Schema> {
-        match self.interface.receive(Message::Schema)? {
+    fn get_schema(manager: &mut VaultManager, vault: String) -> anyhow::Result<Schema> {
+        match manager.receive(ManagerMessage::VaultMessage(vault, Message::Schema))? {
             Output::Schema(schema) => Ok(schema),
+            _ => Err(Box::new(CommunicationError::UnexpectedOutput).into()),
+        }
+    }
+
+    fn get_info(manager: &mut VaultManager) -> anyhow::Result<Info> {
+        match manager.receive(ManagerMessage::Info)? {
+            Output::Info(info) => Ok(info),
             _ => Err(Box::new(CommunicationError::UnexpectedOutput).into()),
         }
     }
@@ -312,22 +444,22 @@ impl CliApp {
         Ok(password)
     }
 
-    fn prompt(&self, repr: &str, spec: PasswordSpec) -> anyhow::Result<Store> {
+    fn prompt(repr: &str, spec: PasswordSpec) -> anyhow::Result<Store> {
         match repr {
-            "password" => self.get_store_password(spec).map(Store::Password),
+            "password" => Self::get_store_password(spec).map(Store::Password),
             "username-password" => {
                 let username_input = inquire::Text::new("Username:")
                     .with_help_message("New username")
                     .prompt();
                 let username = username_input?;
-                let password = self.get_store_password(spec)?;
+                let password = Self::get_store_password(spec)?;
                 Ok(Store::UsernamePassword(username, password))
             }
             _ => Err(Box::new(SchemaError::BadType).into()),
         }
     }
 
-    fn get_store_password(&self, spec: PasswordSpec) -> anyhow::Result<Password> {
+    fn get_store_password(spec: PasswordSpec) -> anyhow::Result<Password> {
         let generate = Confirm::new("Generate password?")
             .with_default(true)
             .with_help_message("Create a random password or enter manually?")

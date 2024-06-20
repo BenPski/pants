@@ -1,8 +1,9 @@
 pub mod encrypted;
 pub mod interface;
+pub mod manager;
 
 use core::str;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +18,7 @@ use crate::{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Vault {
-    data: HashMap<String, Store>,
+    data: BTreeMap<String, Store>,
 }
 
 impl Default for Vault {
@@ -29,7 +30,7 @@ impl Default for Vault {
 impl Vault {
     pub fn new() -> Vault {
         Self {
-            data: HashMap::new(),
+            data: BTreeMap::new(),
         }
     }
 
@@ -94,10 +95,10 @@ impl Vault {
     }
 
     pub fn schema(&self) -> Schema {
-        let mut map: HashMap<String, String> = HashMap::new();
+        let mut schema = Schema::new();
         for (key, value) in &self.data {
-            map.insert(key.to_string(), value.repr());
+            schema.insert(key.to_string(), value.repr());
         }
-        map.into()
+        schema
     }
 }

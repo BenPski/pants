@@ -45,3 +45,13 @@ pub enum ClientError {
     #[error("Contraints for the password spec could not be met")]
     BadPasswordSpec,
 }
+
+#[derive(Debug, Error)]
+pub enum ManagerError {
+    #[error("Vault already exists")]
+    VaultExists,
+    #[error("Vault does not exist")]
+    VaultDoesNotExist,
+    #[error("Tried to delete a non-empty vault")]
+    NonEmptyVault,
+}

@@ -1,5 +1,5 @@
 use core::panic;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use aes_gcm::{Aes256Gcm, Key};
 use argon2::password_hash::SaltString;
@@ -7,7 +7,8 @@ use rand::rngs::OsRng;
 
 use crate::{
     command::{Command, Commands},
-    config::{internal_config::InternalConfig, vault_config::VaultConfig},
+    config::vault_config::VaultConfig,
+    errors::ManagerError,
     file::{BackupFile, ProjectFile, RecordFile, SaveDir, SchemaFile, VaultFile},
     message::Message,
     output::Output,
@@ -26,18 +27,34 @@ use super::{
 pub struct VaultInterface {
     config: VaultConfig,
 }
-
-impl Default for VaultInterface {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+//
+// impl Default for VaultInterface {
+//     fn default() -> Self {
+//         Self::new(utils::base_path())
+//     }
+// }
 
 impl VaultInterface {
-    pub fn new() -> Self {
-        let config: VaultConfig = VaultConfig::load_err();
+    pub fn new(save_dir: PathBuf) -> Self {
+        let config = VaultConfig::new(save_dir);
 
         Self { config }
+    }
+    pub fn delete(&self, password: Password) -> anyhow::Result<()> {
+        // ensure password is right
+        VaultHandler::get_interface(password, self.config.save_dir())?;
+        let dir = self.config.save_dir();
+        let _ = dir.remove();
+        Ok(())
+    }
+    pub fn delete_empty(&self) -> anyhow::Result<()> {
+        if self.is_empty() {
+            let dir = self.config.save_dir();
+            let _ = dir.remove();
+            Ok(())
+        } else {
+            Err(ManagerError::NonEmptyVault.into())
+        }
     }
     pub fn receive(&self, message: Message) -> anyhow::Result<Output> {
         match message {
@@ -53,6 +70,11 @@ impl VaultInterface {
             .read()
             .map(|data| data.deserialize())
             .unwrap_or(Schema::default())
+    }
+
+    fn is_empty(&self) -> bool {
+        let schema = self.get_schema();
+        schema.is_empty()
     }
 }
 

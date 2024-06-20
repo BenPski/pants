@@ -3,46 +3,46 @@ use iced::{
     subscription::{self, Subscription},
 };
 
-use crate::{
-    file::BackupFile, message::Message, output::Output, reads::Reads, schema::Schema, store::Store,
-    vault::interface::VaultInterface,
-};
+use crate::{manager_message::ManagerMessage, output::Output, vault::manager::VaultManager};
 #[derive(Debug, Clone)]
 pub enum Event {
     Connected(Connection),
     Disconnected,
-    ReceiveSchema(Schema),
-    ReceiveRead(Reads<Store>),
-    ReceiveList(Vec<String>),
-    ReceiveBackup(BackupFile),
-    ReceiveBackupFiles(Vec<BackupFile>),
-    ReceiveNothing,
+    ReceiveOutput(Output),
+    ReceiveError,
+    // ReceiveSchema(Schema),
+    // ReceiveRead(Reads<Store>),
+    // ReceiveList(Vec<String>),
+    // ReceiveBackup(BackupFile),
+    // ReceiveBackupFiles(Vec<BackupFile>),
+    // ReceiveNothing,
 }
 
 impl From<Output> for Event {
     fn from(value: Output) -> Self {
-        match value {
-            Output::Schema(s) => Self::ReceiveSchema(s),
-            Output::Read(r) => Self::ReceiveRead(r),
-            Output::List(l) => Self::ReceiveList(l),
-            Output::Backup(b) => Self::ReceiveBackup(b),
-            Output::BackupFiles(f) => Self::ReceiveBackupFiles(f),
-            Output::Nothing => Self::ReceiveNothing,
-        }
+        Self::ReceiveOutput(value)
+        // match value {
+        //     Output::Schema(s) => Self::ReceiveSchema(s),
+        //     Output::Read(r) => Self::ReceiveRead(r),
+        //     Output::List(l) => Self::ReceiveList(l),
+        //     Output::Backup(b) => Self::ReceiveBackup(b),
+        //     Output::BackupFiles(f) => Self::ReceiveBackupFiles(f),
+        //     Output::Nothing => Self::ReceiveNothing,
+        // }
     }
 }
 
 #[derive(Debug)]
 enum State {
     Starting,
-    Connected(mpsc::Receiver<Message>),
+    Connected(mpsc::Receiver<ManagerMessage>),
 }
 
 #[derive(Debug, Clone)]
-pub struct Connection(mpsc::Sender<Message>);
+pub struct Connection(mpsc::Sender<ManagerMessage>);
 
 impl Connection {
-    pub fn send(&mut self, message: Message) {
+    pub fn send(&mut self, message: ManagerMessage) {
         self.0
             .try_send(message)
             .expect("Send message to echo server");
@@ -50,7 +50,7 @@ impl Connection {
 }
 pub fn connect() -> Subscription<Event> {
     struct Connect;
-    let interface = VaultInterface::new();
+    let mut interface = VaultManager::default();
     subscription::channel(
         std::any::TypeId::of::<Connect>(),
         100,
@@ -72,9 +72,16 @@ pub fn connect() -> Subscription<Event> {
 
                         let response = interface.receive(input);
 
-                        if let Ok(vault_output) = response {
-                            let event = vault_output.into();
-                            let _ = output.send(event).await;
+                        match response {
+                            Ok(vault_output) => {
+                                let event = vault_output.into();
+                                let _ = output.send(event).await;
+                            }
+                            // TODO: actually pass along errors so they can be reacted to and
+                            // reported
+                            Err(_) => {
+                                let _ = output.send(Event::ReceiveError).await;
+                            }
                         }
                     }
                 }

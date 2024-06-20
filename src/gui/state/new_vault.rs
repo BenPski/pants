@@ -9,16 +9,16 @@ use iced_aw::Card;
 use crate::{gui::gui_message::GUIMessage, store::StoreChoice};
 
 #[derive(Debug, Clone)]
-pub struct NewEntryState {
+pub struct NewVaultState {
     pub vault: String,
     pub name: String,
     pub choice: StoreChoice,
     pub value: HashMap<String, String>,
 }
 
-impl Default for NewEntryState {
+impl Default for NewVaultState {
     fn default() -> Self {
-        NewEntryState {
+        NewVaultState {
             vault: String::new(),
             name: String::new(),
             choice: StoreChoice::default(),
@@ -27,17 +27,12 @@ impl Default for NewEntryState {
     }
 }
 
-impl NewEntryState {
-    pub fn for_vault(vault: String) -> Self {
-        NewEntryState {
-            vault,
-            name: String::new(),
-            choice: StoreChoice::default(),
-            value: StoreChoice::default().convert_default().as_hash(),
-        }
-    }
+impl NewVaultState {
     pub fn view(&self) -> Element<GUIMessage> {
-        let header = text(format!("New entry for {}", self.vault));
+        let header = text("New vault");
+        let vault_prefix = text("Vault:");
+        let vault_input = text_input("Vault", &self.vault);
+        let entry_text = text("Initial Entry:");
         let name_prefix = text("Name:");
         let name_input = text_input("Name", &self.name).on_input(GUIMessage::ChangeName);
         let style_choice = pick_list(
@@ -77,6 +72,8 @@ impl NewEntryState {
         Card::new(
             header,
             container(column![
+                row![vault_prefix, vault_input],
+                entry_text,
                 row![name_prefix, name_input],
                 style_choice,
                 data_input,

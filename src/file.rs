@@ -225,6 +225,10 @@ impl SaveDir {
         Self { base_path }
     }
 
+    pub fn remove(&self) -> Result<(), std::io::Error> {
+        fs::remove_dir_all(&self.base_path)
+    }
+
     pub fn vault_file(&self) -> VaultFile {
         self.nontimestamped_file()
     }

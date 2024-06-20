@@ -13,6 +13,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct EntryState {
+    pub vault: String,
     pub key: String,
     pub choice: StoreChoice,
     pub value: HashMap<String, String>,
@@ -21,7 +22,7 @@ pub struct EntryState {
 
 impl EntryState {
     pub fn view(&self) -> Element<GUIMessage> {
-        let header = text(self.key.clone());
+        let header = text(format!("{} in {}", self.key.clone(), self.vault));
         let data_input = match &self.choice {
             StoreChoice::Password => {
                 let prefix = text("Password:");
@@ -99,7 +100,7 @@ impl EntryState {
         None
     }
 
-    pub fn from_entry(key: String, style: String) -> Self {
+    pub fn from_entry(vault: String, key: String, style: String) -> Self {
         let value = match style.as_str() {
             "password" => Store::Password(String::new()),
             "username-password" => Store::UsernamePassword(String::new(), String::new()),
@@ -107,6 +108,7 @@ impl EntryState {
         };
         let (choice, value) = value.split();
         EntryState {
+            vault,
             key,
             choice,
             value,
