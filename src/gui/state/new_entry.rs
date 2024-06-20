@@ -6,14 +6,17 @@ use iced::{
 };
 use iced_aw::Card;
 
-use crate::{gui::gui_message::GUIMessage, store::StoreChoice};
+use crate::{
+    gui::gui_message::GUIMessage,
+    store::{StoreChoice, StoreHash},
+};
 
 #[derive(Debug, Clone)]
 pub struct NewEntryState {
     pub vault: String,
     pub name: String,
     pub choice: StoreChoice,
-    pub value: HashMap<String, String>,
+    pub value: StoreHash,
 }
 
 impl Default for NewEntryState {

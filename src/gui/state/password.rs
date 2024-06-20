@@ -3,39 +3,53 @@ use iced::{
     Element, Length,
 };
 use iced_aw::Card;
+use secrecy::ExposeSecret;
 
-use crate::gui::gui_message::GUIMessage;
+use crate::{gui::gui_message::GUIMessage, Password};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PasswordState {
-    pub password: String,
-    pub confirm: Option<String>,
+    pub password: Password,
+    pub confirm: Option<Password>,
+}
+
+impl Default for PasswordState {
+    fn default() -> Self {
+        Self {
+            password: String::new().into(),
+            confirm: None,
+        }
+    }
 }
 
 impl PasswordState {
     pub fn new(confirm: bool) -> Self {
         PasswordState {
-            password: String::new(),
-            confirm: if confirm { Some(String::new()) } else { None },
+            password: String::new().into(),
+            confirm: if confirm {
+                Some(String::new().into())
+            } else {
+                None
+            },
         }
     }
     pub fn valid(&self) -> bool {
         if let Some(confirm) = &self.confirm {
-            self.password == *confirm
+            self.password.expose_secret() == confirm.expose_secret()
         } else {
             true
         }
     }
     pub fn view(&self) -> Element<GUIMessage> {
         let header = text("Vault password");
-        let password_input = text_input("vault password", &self.password.clone())
-            .on_input(GUIMessage::PasswordChanged)
+        let password_input = text_input("vault password", &self.password.clone().expose_secret())
+            .on_input(|p| GUIMessage::PasswordChanged(p.into()))
             .on_submit(GUIMessage::Submit)
             .width(Length::Fill)
             .secure(true);
         let password_input = if let Some(confirm) = &self.confirm {
-            let confirm_input = text_input("confirm password", confirm)
-                .on_input(GUIMessage::PasswordConfirmChanged)
+            let confirm_input = text_input("confirm password", confirm.expose_secret())
+                .on_input(|p| GUIMessage::PasswordConfirmChanged(p.into()))
                 .on_submit(GUIMessage::Submit)
                 .width(Length::Fill)
                 .secure(true);

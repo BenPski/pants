@@ -5,9 +5,13 @@ use aes_gcm::{
     AeadCore, Aes256Gcm, Key, KeyInit,
 };
 use argon2::{password_hash::SaltString, Argon2};
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 
-use crate::errors::{DecryptionError, EncryptionError};
+use crate::{
+    errors::{DecryptionError, EncryptionError},
+    Password,
+};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct Encrypted<Data> {
@@ -84,10 +88,10 @@ pub trait SecureData {
     // {
     //     Decrypted::deserialize(decrypted)
     // }
-    fn key(&self, password: String) -> Key<Aes256Gcm> {
+    fn key(&self, password: Password) -> Key<Aes256Gcm> {
         Self::get_key(self.salt(), password)
     }
-    fn get_key(salt: &str, password: String) -> Key<Aes256Gcm> {
+    fn get_key(salt: &str, password: Password) -> Key<Aes256Gcm> {
         let salt_string = SaltString::from_b64(salt).unwrap();
         let mut salt_arr = [0u8; 64];
         let salt_bytes = salt_string.decode_b64(&mut salt_arr).unwrap();
@@ -95,7 +99,11 @@ pub trait SecureData {
         let mut output_key = [0u8; 32];
         let argon2 = Argon2::default();
         argon2
-            .hash_password_into(password.as_bytes(), salt_bytes, &mut output_key)
+            .hash_password_into(
+                password.expose_secret().as_bytes(),
+                salt_bytes,
+                &mut output_key,
+            )
             .unwrap();
 
         output_key.into()

@@ -5,7 +5,12 @@ pub mod manager;
 use core::str;
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use secrecy::ExposeSecret;
+use serde::{
+    ser::{SerializeMap, SerializeTupleStruct},
+    Deserialize, Serialize,
+};
+use zeroize::ZeroizeOnDrop;
 
 use crate::{
     action::{Action, Record},
@@ -20,6 +25,19 @@ use crate::{
 pub struct Vault {
     data: BTreeMap<String, Store>,
 }
+
+// impl Serialize for Vault {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         let mut map = BTreeMap::new();
+//         for (k, v) in &self.data {
+//             map.insert(k, v.expose());
+//         }
+//         map.serialize(serializer)
+//     }
+// }
 
 impl Default for Vault {
     fn default() -> Self {

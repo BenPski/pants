@@ -8,7 +8,7 @@ use iced_aw::Card;
 
 use crate::{
     gui::gui_message::GUIMessage,
-    store::{Store, StoreChoice},
+    store::{Store, StoreChoice, StoreHash},
 };
 
 #[derive(Debug, Clone)]
@@ -16,7 +16,7 @@ pub struct EntryState {
     pub vault: String,
     pub key: String,
     pub choice: StoreChoice,
-    pub value: HashMap<String, String>,
+    pub value: StoreHash,
     pub hidden: bool,
 }
 

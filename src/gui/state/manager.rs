@@ -15,6 +15,7 @@ use crate::{
     output::Output,
     reads::Reads,
     store::{Store, StoreChoice},
+    Password,
 };
 use iced::{
     alignment,
@@ -58,7 +59,7 @@ enum ConnectionState {
 }
 
 impl ManagerState {
-    fn get_password(&self) -> Option<String> {
+    fn get_password(&self) -> Option<Password> {
         for state in &self.internal_state {
             if let InternalState::Password(p) = state {
                 return Some(p.password.clone());
@@ -66,7 +67,7 @@ impl ManagerState {
         }
         None
     }
-    fn handle_password_submit(&mut self, password: String) {
+    fn handle_password_submit(&mut self, password: Password) {
         let messages = match &self.temp_message {
             TempMessage::Get(vault, key) => {
                 let message = self.temp_message.with_password(password);
@@ -480,7 +481,9 @@ impl Application for ManagerState {
                         //     }
                         // }
                         InternalState::Prompt(prompt_state) => {
-                            if !self.info.data.contains_key(&prompt_state.vault) {
+                            if !self.info.data.contains_key(&prompt_state.vault)
+                                && !prompt_state.vault.is_empty()
+                            {
                                 let message = ManagerMessage::NewVault(prompt_state.vault.clone());
                                 self.send_message(vec![message, ManagerMessage::Info]);
                                 self.internal_state.pop();

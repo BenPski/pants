@@ -5,7 +5,7 @@ use iced::{
     Element,
 };
 
-use crate::{manager_message::ManagerMessage, message::Message, store::StoreChoice};
+use crate::{manager_message::ManagerMessage, message::Message, store::StoreChoice, Password};
 
 use super::gui_message::GUIMessage;
 
@@ -65,7 +65,7 @@ impl TempMessage {
         }
     }
 
-    pub fn with_password(&self, password: String) -> ManagerMessage {
+    pub fn with_password(&self, password: Password) -> ManagerMessage {
         match self {
             Self::Delete(vault, key) => ManagerMessage::VaultMessage(
                 vault.into(),

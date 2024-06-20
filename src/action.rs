@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStructVariant, Deserialize, Serialize};
 
 use crate::store::Store;
 
@@ -15,6 +15,24 @@ pub enum Action {
     },
     Noop,
 }
+
+// impl Serialize for Action {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         match self {
+//             Self::Noop => serializer.serialize_unit_variant("Action", 1, "Noop"),
+//             Self::Replace { key, start, end } => {
+//                 let mut state = serializer.serialize_struct_variant("Action", 0, "Replace", 3)?;
+//                 state.serialize_field("key", &key)?;
+//                 state.serialize_field("start", &start.as_ref().map(|s| s.expose()))?;
+//                 state.serialize_field("end", &end.as_ref().map(|s| s.expose()))?;
+//                 state.end()
+//             }
+//         }
+//     }
+// }
 
 impl Action {
     pub fn inverse(self) -> Self {

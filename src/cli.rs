@@ -5,6 +5,7 @@ use arboard::Clipboard;
 use clap::{Parser, Subcommand, ValueEnum};
 use inquire::Confirm;
 use pants_gen::password::PasswordSpec;
+use secrecy::ExposeSecret;
 
 use crate::{
     config::{client_config::ClientConfig, internal_config::BaseConfig},
@@ -183,12 +184,12 @@ impl CliApp {
                             for (key, value) in reads.data.clone().into_iter() {
                                 println!("{}", key);
                                 match value {
-                                    Store::Password(pass) => {
+                                    Store::Password(ref pass) => {
                                         clipboard.set_text(pass)?;
                                         println!("  password: <Copied to clipboard>");
                                         thread::sleep(Duration::from_secs(config.clipboard_time));
                                     }
-                                    Store::UsernamePassword(user, pass) => {
+                                    Store::UsernamePassword(ref user, ref pass) => {
                                         clipboard.set_text(pass)?;
                                         println!("  username: {}", user);
                                         println!("  password: <Copied to clipboard>");
@@ -433,7 +434,7 @@ impl CliApp {
             .with_display_toggle_enabled()
             .with_display_mode(inquire::PasswordDisplayMode::Masked)
             .prompt()?;
-        Ok(password)
+        Ok(password.into())
     }
 
     fn get_password_confirm(prompt: &str) -> anyhow::Result<Password> {
@@ -441,19 +442,24 @@ impl CliApp {
             .with_display_toggle_enabled()
             .with_display_mode(inquire::PasswordDisplayMode::Masked)
             .prompt()?;
-        Ok(password)
+        Ok(password.into())
     }
 
     fn prompt(repr: &str, spec: PasswordSpec) -> anyhow::Result<Store> {
         match repr {
-            "password" => Self::get_store_password(spec).map(Store::Password),
+            "password" => {
+                Self::get_store_password(spec).map(|s| Store::Password(s.expose_secret().into()))
+            }
             "username-password" => {
                 let username_input = inquire::Text::new("Username:")
                     .with_help_message("New username")
                     .prompt();
                 let username = username_input?;
                 let password = Self::get_store_password(spec)?;
-                Ok(Store::UsernamePassword(username, password))
+                Ok(Store::UsernamePassword(
+                    username,
+                    password.expose_secret().into(),
+                ))
             }
             _ => Err(Box::new(SchemaError::BadType).into()),
         }
@@ -467,7 +473,7 @@ impl CliApp {
         match generate {
             Ok(true) => {
                 let password = spec.generate().ok_or(ClientError::BadPasswordSpec)?;
-                Ok(password)
+                Ok(password.into())
             }
             Ok(false) => {
                 let password_input = inquire::Password::new("Password: ")
@@ -475,7 +481,7 @@ impl CliApp {
                     .with_display_mode(inquire::PasswordDisplayMode::Masked)
                     .prompt();
                 match password_input {
-                    Ok(p) => Ok(p),
+                    Ok(p) => Ok(p.into()),
                     Err(_) => Err(Box::new(SchemaError::BadValues).into()),
                 }
             }
