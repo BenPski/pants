@@ -50,7 +50,7 @@ impl Connection {
 }
 pub fn connect() -> Subscription<Event> {
     struct Connect;
-    let mut interface = VaultManager::new();
+    let mut interface = VaultManager::default();
     subscription::channel(
         std::any::TypeId::of::<Connect>(),
         100,

@@ -14,7 +14,9 @@ pub struct PromptState {
 impl PromptState {
     pub fn view(&self) -> Element<GUIMessage> {
         let header = text("New vault name");
-        let name_input = text_input("Name", &self.vault).on_input(GUIMessage::PromptChanged);
+        let name_input = text_input("Name", &self.vault)
+            .on_input(GUIMessage::PromptChanged)
+            .on_submit(GUIMessage::Submit);
 
         let create_button = button("Create").on_press(GUIMessage::Submit);
         let cancel_button = button("Cancel").on_press(GUIMessage::Exit);

@@ -1,6 +1,7 @@
+use core::panic;
 use std::{fs, path::PathBuf};
 
-use figment::{Error, Figment, Provider};
+use figment::{providers::Format, Error, Figment, Provider};
 use serde::{Deserialize, Serialize};
 
 use crate::utils;
@@ -47,6 +48,28 @@ where
         Ok(())
     }
 
+    fn load_with_file(path: PathBuf) -> anyhow::Result<Self> {
+        let figment = Self::figment().merge(figment::providers::Toml::file_exact(path));
+        let config = match figment.extract() {
+            Ok(config) => config,
+            Err(_e) => {
+                let config = Self::default();
+                config.save()?;
+                config
+            }
+        };
+        Ok(config)
+    }
+
+    fn load_with_file_err(path: PathBuf) -> Self {
+        Self::load_with_file(path.to_path_buf()).unwrap_or_else(|_| {
+            panic!(
+                "Unable to load or create '{:?}' config, please create manually",
+                path
+            )
+        })
+    }
+
     fn load() -> anyhow::Result<Self> {
         match Self::figment().extract() {
             Ok(c) => Ok(c),
@@ -60,6 +83,32 @@ where
 
     fn load_err() -> Self {
         Self::load().unwrap_or_else(|_| {
+            panic!(
+                "Unable to load or create '{:?}' config, please create manually",
+                Self::name()
+            )
+        })
+    }
+}
+
+pub trait BaseConfig<'de>: InternalConfig<'de> {
+    fn load() -> anyhow::Result<Self> {
+        let mut path = utils::base_path();
+        path.push(Self::name());
+        let figment = Self::figment().merge(figment::providers::Toml::file_exact(path));
+        let config = match figment.extract() {
+            Ok(config) => config,
+            Err(_e) => {
+                let config = Self::default();
+                config.save()?;
+                config
+            }
+        };
+        Ok(config)
+    }
+
+    fn load_err() -> Self {
+        <Self as BaseConfig>::load().unwrap_or_else(|_| {
             panic!(
                 "Unable to load or create '{:?}' config, please create manually",
                 Self::name()

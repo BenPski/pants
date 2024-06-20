@@ -7,7 +7,7 @@ use inquire::Confirm;
 use pants_gen::password::PasswordSpec;
 
 use crate::{
-    config::{client_config::ClientConfig, internal_config::InternalConfig},
+    config::{client_config::ClientConfig, internal_config::BaseConfig},
     errors::{ClientError, CommunicationError, SchemaError},
     info::Info,
     manager_message::ManagerMessage,
@@ -127,8 +127,8 @@ pub struct CliApp {
 impl CliApp {
     pub fn run() {
         let args = CliArgs::parse();
-        let config: ClientConfig = ClientConfig::load_err();
-        let interface = VaultManager::new();
+        let config = <ClientConfig as BaseConfig>::load_err();
+        let interface = VaultManager::default();
         let app = CliApp {
             args,
             config,
@@ -301,16 +301,17 @@ impl CliApp {
             }
             CLICommands::Add { vault, style, spec } => {
                 let info = Self::get_info(manager)?;
+                let schema = info.get(vault).cloned().unwrap_or(Schema::default());
                 let new_vault = !info.data.contains_key(vault);
+                let confirm_password = new_vault || schema.is_empty();
                 if new_vault {
                     manager.receive(ManagerMessage::NewVault(vault.into()))?;
                 }
-                let schema = info.get(vault).cloned().unwrap_or(Schema::default());
                 let spec =
                     PasswordSpec::from_str(&spec.clone().unwrap_or(config.password_spec.clone()))?;
                 match style {
                     EntryStyle::Password { name } => Self::handle_new(
-                        new_vault,
+                        confirm_password,
                         vault.into(),
                         schema,
                         name.to_string(),
@@ -318,7 +319,7 @@ impl CliApp {
                         spec,
                     ),
                     EntryStyle::UsernamePassword { name } => Self::handle_new(
-                        new_vault,
+                        confirm_password,
                         vault.into(),
                         schema,
                         name.to_string(),

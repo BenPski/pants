@@ -1,7 +1,8 @@
-use figment::providers::Format;
-
 use crate::{
-    config::{internal_config::InternalConfig, manager_config::ManagerConfig},
+    config::{
+        internal_config::{BaseConfig, InternalConfig},
+        manager_config::ManagerConfig,
+    },
     errors::ManagerError,
     info::Info,
     manager_message::ManagerMessage,
@@ -18,17 +19,15 @@ pub struct VaultManager {
 
 impl Default for VaultManager {
     fn default() -> Self {
-        let mut path = utils::base_path();
-        path.push(ManagerConfig::name());
-        let figment = ManagerConfig::figment().merge(figment::providers::Toml::file_exact(path));
-        let config = figment.extract().unwrap();
+        let config = <ManagerConfig as BaseConfig>::load_err();
+
         Self { config }
     }
 }
 
 impl VaultManager {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new() -> anyhow::Result<Self> {
+        <ManagerConfig as BaseConfig>::load().map(|config| Self { config })
     }
 
     pub fn receive(&mut self, message: ManagerMessage) -> anyhow::Result<Output> {

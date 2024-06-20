@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::internal_config::InternalConfig;
 
+use super::internal_config::BaseConfig;
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ManagerConfig {
     pub map: BTreeMap<String, PathBuf>,
@@ -18,6 +20,8 @@ impl<'de> InternalConfig<'de> for ManagerConfig {
         "pants.toml".into()
     }
 }
+
+impl<'de> BaseConfig<'de> for ManagerConfig {}
 
 impl Provider for ManagerConfig {
     fn metadata(&self) -> Metadata {

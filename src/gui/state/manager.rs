@@ -356,7 +356,11 @@ impl Application for ManagerState {
                     password_state.password = p;
                 }
             }
-
+            GUIMessage::PasswordConfirmChanged(p) => {
+                if let Some(InternalState::Password(password_state)) = self.active_state_mut() {
+                    password_state.confirm = Some(p);
+                }
+            }
             GUIMessage::PromptChanged(p) => {
                 if let Some(InternalState::Prompt(prompt_state)) = self.active_state_mut() {
                     prompt_state.vault = p;
@@ -433,14 +437,19 @@ impl Application for ManagerState {
                 if let Some(active_state) = self.active_state() {
                     match active_state {
                         InternalState::Password(password_state) => {
-                            self.handle_password_submit(password_state.password.clone());
+                            if password_state.valid() {
+                                self.handle_password_submit(password_state.password.clone());
+                            }
                         }
                         InternalState::New(new_state) => {
                             if let Some(schema) = self.info.get(&new_state.vault) {
-                                if !schema.data.contains_key(&new_state.name)
-                                    && self.temp_message.complete()
-                                {
-                                    self.internal_state.push(PasswordState::default().into());
+                                println!("{:?}", schema);
+                                if self.temp_message.complete() {
+                                    if schema.is_empty() {
+                                        self.internal_state.push(PasswordState::new(true).into());
+                                    } else if !schema.data.contains_key(&new_state.name) {
+                                        self.internal_state.push(PasswordState::default().into());
+                                    }
                                 }
                             }
                         }

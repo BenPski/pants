@@ -13,6 +13,7 @@ pub enum GUIMessage {
     CopyPassword,
     PromptChanged(String),
     PasswordChanged(String),
+    PasswordConfirmChanged(String),
     ChangeName(String),
     SelectStyle(StoreChoice),
     UpdateField(String, String),
