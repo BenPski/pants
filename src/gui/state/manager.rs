@@ -391,19 +391,19 @@ impl Application for ManagerState {
             GUIMessage::UpdateField(k, v) => {
                 match self.active_state_mut() {
                     Some(InternalState::New(new_state)) => {
-                        new_state.value.insert(k.clone(), v.clone().into());
+                        new_state.value.insert(k.clone(), v.clone());
                     }
                     Some(InternalState::Entry(entry_state)) => {
-                        entry_state.value.insert(k.clone(), v.clone().into());
+                        entry_state.value.insert(k.clone(), v.clone());
                     }
                     _ => {}
                 };
                 match &mut self.temp_message {
                     TempMessage::New(_, _, _, ref mut value) => {
-                        value.insert(k, v.into());
+                        value.insert(k, v);
                     }
                     TempMessage::Update(_, _, _, ref mut value) => {
-                        value.insert(k, v.into());
+                        value.insert(k, v);
                     }
                     _ => {}
                 };

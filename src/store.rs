@@ -1,11 +1,9 @@
 use std::{collections::HashMap, fmt::Display};
 
 use enum_iterator::{all, Sequence};
-use secrecy::{ExposeSecret, Secret, SerializableSecret};
+use secrecy::{ExposeSecret, Secret};
 use serde::{ser::SerializeTupleVariant, Deserialize, Serialize};
-use zeroize::ZeroizeOnDrop;
 
-use crate::Password;
 
 pub type StoreHash = HashMap<String, Secret<String>>;
 
@@ -35,12 +33,12 @@ impl StoreChoice {
         match self {
             Self::Password => {
                 let p = data.get("password")?;
-                Some(Store::Password(p.clone().into()))
+                Some(Store::Password(p.clone()))
             }
             Self::UsernamePassword => {
                 let p = data.get("password")?;
                 let u = data.get("username")?;
-                Some(Store::UsernamePassword(u.clone(), p.clone().into()))
+                Some(Store::UsernamePassword(u.clone(), p.clone()))
             }
         }
     }

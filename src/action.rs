@@ -1,4 +1,4 @@
-use serde::{ser::SerializeStructVariant, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::store::Store;
 

@@ -1,4 +1,3 @@
-use std::fmt::Display;
 
 use crate::{file::BackupFile, info::Info, reads::Reads, schema::Schema, store::Store};
 

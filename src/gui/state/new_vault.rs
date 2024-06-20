@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 
 use iced::{
     widget::{button, column, container, pick_list, row, text, text_input},

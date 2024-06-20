@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap};
 
 #[derive(Debug, Clone)]
 pub struct Reads<T> {

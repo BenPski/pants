@@ -42,7 +42,7 @@ impl PasswordState {
     }
     pub fn view(&self) -> Element<GUIMessage> {
         let header = text("Vault password");
-        let password_input = text_input("vault password", &self.password.clone().expose_secret())
+        let password_input = text_input("vault password", self.password.clone().expose_secret())
             .on_input(|p| GUIMessage::PasswordChanged(p.into()))
             .on_submit(GUIMessage::Submit)
             .width(Length::Fill)

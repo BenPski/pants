@@ -447,7 +447,7 @@ impl CliApp {
 
     fn prompt(repr: &str, spec: PasswordSpec) -> anyhow::Result<Store> {
         match repr {
-            "password" => Self::get_store_password(spec).map(|s| Store::Password(s)),
+            "password" => Self::get_store_password(spec).map(Store::Password),
             "username-password" => {
                 let username_input = inquire::Text::new("Username:")
                     .with_help_message("New username")

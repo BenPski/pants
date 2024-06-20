@@ -5,12 +5,9 @@ pub mod manager;
 use core::str;
 use std::collections::BTreeMap;
 
-use secrecy::ExposeSecret;
 use serde::{
-    ser::{SerializeMap, SerializeTupleStruct},
     Deserialize, Serialize,
 };
-use zeroize::ZeroizeOnDrop;
 
 use crate::{
     action::{Action, Record},
