@@ -4,7 +4,6 @@ use enum_iterator::{all, Sequence};
 use secrecy::{ExposeSecret, Secret};
 use serde::{ser::SerializeTupleVariant, Deserialize, Serialize};
 
-
 pub type StoreHash = HashMap<String, Secret<String>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence)]

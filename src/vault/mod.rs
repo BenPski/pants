@@ -5,9 +5,7 @@ pub mod manager;
 use core::str;
 use std::collections::BTreeMap;
 
-use serde::{
-    Deserialize, Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     action::{Action, Record},
