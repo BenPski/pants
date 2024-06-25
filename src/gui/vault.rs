@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use iced::{
     alignment, theme,
     widget::{button, column, container, row, text},
-    Element, Length, Theme,
+    Alignment, Element, Font, Length, Theme,
 };
 
 use crate::schema::Schema;
@@ -66,9 +66,19 @@ impl Vault {
         let delete_button = button("X")
             .on_press(VaultMessage::Delete)
             .style(theme::Button::Destructive);
-        let header = row![name, delete_button];
+        let symbol = if self.expanded {
+            text("- ")
+        } else {
+            text("+ ")
+        }
+        .vertical_alignment(alignment::Vertical::Center)
+        .font(Font::MONOSPACE)
+        .width(Length::Shrink);
+        let header = row![symbol, name, delete_button];
         let mut entries = self
-            .entries.values().map(|e| {
+            .entries
+            .values()
+            .map(|e| {
                 e.view()
                     .map(move |message| VaultMessage::Entry(message, e.key.clone()))
             })
@@ -88,21 +98,24 @@ impl Vault {
             .height(Length::Shrink)
             .into(),
         );
-        let content = container(column(entries)).padding(10);
-        let display = if self.expanded {
-            column![
-                button(header).on_press(VaultMessage::Toggle(self.name.clone())),
-                content
-            ]
-        } else {
-            column![button(header).on_press(VaultMessage::Toggle(self.name.clone()))]
-        };
-        container(display)
+        let content = container(column(entries))
             .padding(10)
             .style(|theme: &Theme| {
                 let palette = theme.extended_palette();
-                container::Appearance::default().with_border(palette.background.strong.color, 4.0)
-            })
-            .into()
+                container::Appearance::default().with_border(palette.background.strong.color, 2.0)
+            });
+        let header_button = button(header)
+            .on_press(VaultMessage::Toggle(self.name.clone()))
+            .style(theme::Button::Text);
+        let header = container(header_button).style(|theme: &Theme| {
+            let palette = theme.extended_palette();
+            container::Appearance::default().with_border(palette.background.strong.color, 2.0)
+        });
+        let display = if self.expanded {
+            column![header, content]
+        } else {
+            column![header]
+        };
+        container(display).into()
     }
 }

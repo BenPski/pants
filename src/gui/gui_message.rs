@@ -25,5 +25,6 @@ pub enum GUIMessage {
     ClearClipboard,
     ChangeTheme(Theme),
     Event(connection::Event),
+    Nothing,
     // Send(Message),
 }
