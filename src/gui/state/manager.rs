@@ -23,7 +23,7 @@ use crate::{
 use iced::{
     alignment, theme,
     widget::{button, column, container, row, scrollable, text},
-    Application, Border, Color, Command, Element, Length, Subscription, Theme,
+    Application, Border, Command, Element, Length, Subscription, Theme,
 };
 
 use iced_aw::style::MenuBarStyle;
@@ -393,7 +393,7 @@ impl Application for ManagerState {
                 connection::Event::ReceiveError(e) => {
                     self.internal_state = vec![];
                     self.temp_message = TempMessage::default();
-                    self.notice = Some(format!("Encountered an error: {}", e.to_string()));
+                    self.notice = Some(format!("Encountered an error: {}", e));
                     return close_popup();
                 }
             },
