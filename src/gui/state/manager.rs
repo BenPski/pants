@@ -1,7 +1,10 @@
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
 use crate::{
-    config::{client_config::ClientConfig, internal_config::InternalConfig},
+    config::{
+        client_config::ClientConfig,
+        internal_config::{BaseConfig, InternalConfig},
+    },
     gui::{
         connection,
         entry::{Entry, EntryMessage},
@@ -15,14 +18,17 @@ use crate::{
     output::Output,
     reads::Reads,
     store::{Store, StoreChoice},
-    Password,
+    utils, Password,
 };
 use iced::{
     alignment,
-    widget::{button, column, container, scrollable, text},
-    Application, Command, Element, Subscription, Theme,
+    widget::{button, column, container, row, scrollable, text},
+    Application, Border, Color, Command, Element, Length, Subscription, Theme,
 };
-use iced_aw::modal;
+
+use iced_aw::menu::{self, Item, Menu, StyleSheet};
+use iced_aw::style::MenuBarStyle;
+use iced_aw::{menu_bar, menu_items, modal};
 use iced_futures::MaybeSend;
 use pants_gen::password::PasswordSpec;
 use secrecy::{ExposeSecret, Secret};
@@ -32,7 +38,7 @@ use super::prompt::PromptState;
 pub struct ManagerState {
     config: ClientConfig,
     info: Info,
-    vaults: Vec<Vault>,
+    vaults: BTreeMap<String, Vault>,
     internal_state: Vec<InternalState>,
     temp_message: TempMessage,
     stored_clipboard: Option<Password>,
@@ -41,11 +47,11 @@ pub struct ManagerState {
 
 impl Default for ManagerState {
     fn default() -> Self {
-        let config: ClientConfig = ClientConfig::load_err();
+        let config: ClientConfig = <ClientConfig as BaseConfig>::load_err();
         Self {
             config,
             info: Info::default(),
-            vaults: Vec::new(),
+            vaults: BTreeMap::new(),
             internal_state: Vec::new(),
             temp_message: TempMessage::default(),
             stored_clipboard: None,
@@ -138,13 +144,13 @@ impl ManagerState {
         self.temp_message.needs_password()
     }
     fn update(&mut self, info: Info) {
-        let mut vaults = vec![];
+        let mut vaults = BTreeMap::new();
         for (name, schema) in info.data.iter() {
             let mut entries = vec![];
             for (key, value) in schema.data.iter() {
                 entries.push(Entry::new(key.to_string(), value.to_string()));
             }
-            vaults.push(Vault::new(name.to_string(), entries));
+            vaults.insert(name.to_string(), Vault::new(name.to_string(), entries));
         }
         self.info = info;
         self.vaults = vaults;
@@ -182,20 +188,56 @@ impl ManagerState {
             }
         }
     }
+    fn get_theme(&self) -> Theme {
+        let map = utils::theme_map();
+        map.get(&self.config.theme).cloned().unwrap_or_default()
+    }
     fn view(&self) -> Element<GUIMessage> {
         let top_layer = self.internal_state.last().map(|state| state.view());
 
-        let header = text("Vaults")
-            .size(20)
-            .horizontal_alignment(alignment::Horizontal::Center);
+        let menu = |items| Menu::new(items).max_width(180.0).offset(0.0).spacing(5.0);
+        let themes: Vec<Item<GUIMessage, iced::Theme, iced::Renderer>> = Theme::ALL
+            .iter()
+            .map(|t| {
+                let item = if t.to_string() == self.config.theme {
+                    action_selected_item(&t.to_string(), GUIMessage::ChangeTheme(t.clone()))
+                } else {
+                    action_item(&t.to_string(), GUIMessage::ChangeTheme(t.clone()))
+                };
+                Item::new(item)
+            })
+            .collect::<Vec<_>>();
+        let theme_menu = Menu::new(themes).max_width(180.0).offset(15.0).spacing(5.0);
+        #[rustfmt::skip]
+        let menu = menu_bar!(
+            (section_header("Config"), menu(menu_items!(
+                (submenu_item("theme"), theme_menu)))
+            )
+        )
+        .draw_path(menu::DrawPath::Backdrop)
+        .style(|theme:&iced::Theme| menu::Appearance{
+            path_border: Border{
+                radius: [6.0; 4].into(),
+                ..Default::default()
+            },
+            ..theme.appearance(&MenuBarStyle::Default)
+        });
+
         let new_vault = button("New Vault").on_press(GUIMessage::NewVault);
-        let content = scrollable(column(self.vaults.iter().map(|v| {
-            v.view()
-                .map(move |message| GUIMessage::VaultMessage(message, v.name.clone()))
-        })));
+        let content = scrollable(
+            column(self.vaults.values().map(|v| {
+                container(
+                    v.view()
+                        .map(move |message| GUIMessage::VaultMessage(message, v.name.clone())),
+                )
+                .padding(10)
+                .into()
+            }))
+            .padding(10),
+        );
 
         let info = self.temp_message.view();
-        let primary = container(column![header, new_vault, content, info]);
+        let primary = container(column![menu, new_vault, content, info]);
         modal(primary, top_layer)
             .backdrop(GUIMessage::Exit)
             .on_esc(GUIMessage::Exit)
@@ -349,6 +391,11 @@ impl Application for ManagerState {
                     }
                     if self.needs_password() {
                         self.internal_state.push(PasswordState::default().into());
+                    }
+                }
+                VaultMessage::Toggle(name) => {
+                    if let Some(value) = self.vaults.get_mut(&name) {
+                        value.expanded = !value.expanded;
                     }
                 }
             },
@@ -566,6 +613,11 @@ impl Application for ManagerState {
                 return iced::clipboard::write(contents.expose_secret().into());
             }
             GUIMessage::NewVault => self.internal_state.push(PromptState::default().into()),
+            GUIMessage::ChangeTheme(theme) => {
+                self.config.theme = theme.to_string();
+                // ignoring save result for now
+                let _ = self.config.save();
+            }
         }
 
         Command::none()
@@ -577,5 +629,91 @@ impl Application for ManagerState {
 
     fn subscription(&self) -> Subscription<Self::Message> {
         connection::connect().map(GUIMessage::Event)
+    }
+
+    fn theme(&self) -> Theme {
+        self.get_theme()
+    }
+}
+struct ButtonStyle;
+impl button::StyleSheet for ButtonStyle {
+    type Style = iced::Theme;
+
+    fn active(&self, style: &Self::Style) -> button::Appearance {
+        button::Appearance {
+            text_color: style.extended_palette().background.base.text,
+            background: Some(Color::TRANSPARENT.into()),
+            // background: Some(Color::from([1.0; 3]).into()),
+            border: Border {
+                radius: [6.0; 4].into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    fn hovered(&self, style: &Self::Style) -> button::Appearance {
+        let plt = style.extended_palette();
+
+        button::Appearance {
+            background: Some(plt.primary.weak.color.into()),
+            text_color: plt.primary.weak.text,
+            ..self.active(style)
+        }
+    }
+}
+
+fn section_header<'a>(label: &str) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+    base_button(text(label), None)
+}
+
+fn submenu_item<'a>(label: &str) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+    base_button(
+        row![
+            text(label).width(Length::Fill),
+            text(">").width(Length::Shrink)
+        ],
+        None,
+    )
+    .width(Length::Fill)
+}
+
+// fn menu_item<'a>(label: &str) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+//     base_button(text(label), None).width(Length::Fill)
+// }
+
+fn action_item<'a>(
+    label: &str,
+    message: GUIMessage,
+) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+    base_button(text(label), Some(message)).width(Length::Fill)
+}
+
+fn action_selected_item<'a>(
+    label: &str,
+    message: GUIMessage,
+) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+    base_button(
+        row![
+            text(label).width(Length::Fill),
+            text("<").width(Length::Shrink)
+        ],
+        Some(message),
+    )
+}
+
+fn base_button<'a>(
+    content: impl Into<Element<'a, GUIMessage, iced::Theme, iced::Renderer>>,
+    msg: Option<GUIMessage>,
+) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+    if let Some(msg) = msg {
+        button(content)
+            .padding([4, 8])
+            .style(iced::theme::Button::Custom(Box::new(ButtonStyle {})))
+            .on_press(msg)
+    } else {
+        button(content)
+            .padding([4, 8])
+            .style(iced::theme::Button::Custom(Box::new(ButtonStyle {})))
     }
 }
