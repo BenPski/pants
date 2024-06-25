@@ -26,6 +26,8 @@ pub enum GUIMessage {
     ChangeTheme(Theme),
     Event(connection::Event),
     ClosePopup,
+    TabPressed(bool),
+    Close,
     Nothing,
     // Send(Message),
 }

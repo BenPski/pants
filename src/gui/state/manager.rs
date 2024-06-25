@@ -21,9 +21,9 @@ use crate::{
     utils, Password,
 };
 use iced::{
-    alignment, theme,
-    widget::{button, column, container, row, scrollable, text},
-    Application, Border, Command, Element, Length, Subscription, Theme,
+    alignment, keyboard, theme,
+    widget::{self, button, column, container, row, scrollable, text},
+    window, Application, Border, Command, Element, Length, Subscription, Theme,
 };
 
 use iced_aw::style::MenuBarStyle;
@@ -210,18 +210,19 @@ impl ManagerState {
             .iter()
             .map(|t| {
                 let item = if t.to_string() == self.config.theme {
-                    action_selected_item(&t.to_string(), GUIMessage::ChangeTheme(t.clone()))
+                    action_selected_item(text(t), GUIMessage::ChangeTheme(t.clone()))
                 } else {
-                    action_item(&t.to_string(), GUIMessage::ChangeTheme(t.clone()))
+                    action_item(text(t), GUIMessage::ChangeTheme(t.clone()))
                 };
                 Item::new(item)
             })
             .collect::<Vec<_>>();
         let theme_menu = Menu::new(themes).max_width(180.0).offset(15.0).spacing(5.0);
+        let new_vault_item = row![text("New Vault").width(Length::Fill), text("Ctrl+n")];
         #[rustfmt::skip]
         let menu = menu_bar!(
             (section_header("Edit"), menu(menu_items!(
-                (action_item("New Vault", GUIMessage::NewVault)))
+                (action_item(new_vault_item, GUIMessage::NewVault)))
             ))
             (section_header("Config"), menu(menu_items!(
                 (submenu_item("Theme"), theme_menu)))
@@ -680,9 +681,19 @@ impl Application for ManagerState {
             GUIMessage::NewVault => self.internal_state.push(PromptState::default().into()),
             GUIMessage::ChangeTheme(theme) => {
                 self.config.theme = theme.to_string();
-                // ignoring save result for now
-                let _ = self.config.save();
+                if self.config.save().is_err() {
+                    self.notice = Some("Failed to save config file".into());
+                    return close_popup();
+                }
             }
+            GUIMessage::TabPressed(shift) => {
+                return if shift {
+                    widget::focus_previous()
+                } else {
+                    widget::focus_next()
+                }
+            }
+            GUIMessage::Close => return window::close(window::Id::MAIN),
             GUIMessage::Nothing => {}
         }
 
@@ -694,7 +705,43 @@ impl Application for ManagerState {
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
-        connection::connect().map(GUIMessage::Event)
+        let connection_subscriber = connection::connect().map(GUIMessage::Event);
+        use keyboard::key;
+
+        let keyboard_subscriber = keyboard::on_key_press(|key, modifiers| {
+            // println!("{:?}, {:?}", key, modifiers);
+            match (key.as_ref(), modifiers) {
+                (key::Key::Character("n"), keyboard::Modifiers::COMMAND) => {
+                    Some(GUIMessage::NewVault)
+                }
+                (key::Key::Character("q"), keyboard::Modifiers::COMMAND) => Some(GUIMessage::Close),
+                // (key::Key::Named(key::Named::Tab), _) => {
+                //     Some(GUIMessage::TabPressed(modifiers.shift()))
+                // }
+                _ => {
+                    // println!("{:?}, {:?}", key, modifiers);
+                    None
+                }
+            }
+            // let keyboard::Key::Named(key) = key else {
+            //     return None;
+            // };
+            //
+            // match (key, modifiers) {
+            //     (key::Named::Tab, _) => Some(Message::TabPressed {
+            //         shift: modifiers.shift(),
+            //     }),
+            //     (key::Named::ArrowUp, keyboard::Modifiers::SHIFT) => {
+            //         Some(Message::ToggleFullscreen(window::Mode::Fullscreen))
+            //     }
+            //     (key::Named::ArrowDown, keyboard::Modifiers::SHIFT) => {
+            //         Some(Message::ToggleFullscreen(window::Mode::Windowed))
+            //     }
+            //     _ => None,
+            // }
+        });
+
+        Subscription::batch(vec![connection_subscriber, keyboard_subscriber])
     }
 
     fn theme(&self) -> Theme {
@@ -722,19 +769,19 @@ fn submenu_item<'a>(label: &str) -> button::Button<'a, GUIMessage, iced::Theme, 
 // }
 
 fn action_item<'a>(
-    label: &str,
+    label: impl Into<Element<'a, GUIMessage, iced::Theme, iced::Renderer>>,
     message: GUIMessage,
 ) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
-    base_button(text(label), Some(message)).width(Length::Fill)
+    base_button(label, Some(message)).width(Length::Fill)
 }
 
 fn action_selected_item<'a>(
-    label: &str,
+    label: impl Into<Element<'a, GUIMessage, iced::Theme, iced::Renderer>>,
     message: GUIMessage,
 ) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
     base_button(
         row![
-            text(label).width(Length::Fill),
+            container(label).width(Length::Fill),
             text("<").width(Length::Shrink)
         ],
         Some(message),
