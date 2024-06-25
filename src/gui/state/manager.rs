@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap},
-    str::FromStr,
-};
+use std::{collections::BTreeMap, str::FromStr};
 
 use crate::{
     config::{
@@ -10,7 +7,7 @@ use crate::{
     },
     gui::{
         connection,
-        entry::{EntryMessage},
+        entry::EntryMessage,
         gui_message::GUIMessage,
         state::{entry::EntryState, new_entry::NewEntryState, password::PasswordState},
         temp_message::TempMessage,
@@ -720,5 +717,6 @@ fn base_button<'a>(
         button(content)
             .padding([4, 8])
             .style(iced::theme::Button::Custom(Box::new(ButtonStyle {})))
+            .on_press_maybe(None)
     }
 }
