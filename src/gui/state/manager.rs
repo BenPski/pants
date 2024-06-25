@@ -26,8 +26,11 @@ use iced::{
     Application, Border, Color, Command, Element, Length, Subscription, Theme,
 };
 
-use iced_aw::menu::{self, Item, Menu, StyleSheet};
 use iced_aw::style::MenuBarStyle;
+use iced_aw::{
+    floating_element,
+    menu::{self, Item, Menu, StyleSheet},
+};
 use iced_aw::{menu_bar, menu_items, modal};
 use iced_futures::MaybeSend;
 use pants_gen::password::PasswordSpec;
@@ -43,6 +46,7 @@ pub struct ManagerState {
     temp_message: TempMessage,
     stored_clipboard: Option<Password>,
     state: ConnectionState,
+    notice: Option<String>,
 }
 
 impl Default for ManagerState {
@@ -56,6 +60,7 @@ impl Default for ManagerState {
             temp_message: TempMessage::default(),
             stored_clipboard: None,
             state: ConnectionState::Disconnected,
+            notice: None,
         }
     }
 }
@@ -180,6 +185,7 @@ impl ManagerState {
             }
         }
     }
+
     fn send_message(&mut self, messages: Vec<ManagerMessage>) {
         for message in messages {
             match self.state {
@@ -190,10 +196,12 @@ impl ManagerState {
             }
         }
     }
+
     fn get_theme(&self) -> Theme {
         let map = utils::theme_map();
         map.get(&self.config.theme).cloned().unwrap_or_default()
     }
+
     fn view(&self) -> Element<GUIMessage> {
         let top_layer = self.internal_state.last().map(|state| state.view());
 
@@ -241,13 +249,40 @@ impl ManagerState {
             .padding(10),
         );
 
-        let info = self.temp_message.view();
-        let primary = container(column![menu, content, info]);
-        modal(primary, top_layer)
+        // let info = self.temp_message.view();
+        let primary = container(column![menu, content]);
+        let main = modal(primary, top_layer)
             .backdrop(GUIMessage::Exit)
             .on_esc(GUIMessage::Exit)
-            .align_y(alignment::Vertical::Center)
-            .into()
+            .align_y(alignment::Vertical::Center);
+        if let Some(t) = &self.notice {
+            let popup = button(
+                container(text(t))
+                    .width(200.0)
+                    .height(100.0)
+                    .padding(5)
+                    .style(|theme: &Theme| {
+                        let palette = theme.extended_palette();
+                        container::Appearance {
+                            border: Border {
+                                color: palette.background.weak.color,
+                                width: 4.0,
+                                radius: 4.0.into(),
+                            },
+                            background: Some(palette.background.weak.color.into()),
+                            ..Default::default()
+                        }
+                    }),
+            )
+            .style(theme::Button::Text)
+            .on_press(GUIMessage::ClosePopup);
+            floating_element(main, popup)
+                .anchor(floating_element::Anchor::NorthEast)
+                .hide(false)
+                .into()
+        } else {
+            main.into()
+        }
     }
 }
 
@@ -302,6 +337,10 @@ fn delayed_command(
     )
 }
 
+fn close_popup() -> Command<GUIMessage> {
+    delayed_command(5, |_| GUIMessage::ClosePopup)
+}
+
 impl InternalState {
     fn view(&self) -> Element<GUIMessage> {
         match self {
@@ -340,23 +379,27 @@ impl Application for ManagerState {
                 }
                 connection::Event::ReceiveOutput(output) => match output {
                     Output::Info(info) => {
-                        println!("Received info: {:?}", info);
+                        // println!("Received info: {:?}", info);
                         self.update(info);
                     }
                     Output::Read(value) => {
-                        println!("Received read: {:?}", value);
+                        // println!("Received read: {:?}", value);
                         self.update_entry(value);
                     }
                     Output::Nothing => {}
                     _ => todo!(),
                 },
 
-                connection::Event::ReceiveError => {
-                    println!("Encountered error");
+                connection::Event::ReceiveError(e) => {
                     self.internal_state = vec![];
                     self.temp_message = TempMessage::default();
+                    self.notice = Some(format!("Encountered an error: {}", e.to_string()));
+                    return close_popup();
                 }
             },
+            GUIMessage::ClosePopup => {
+                self.notice = None;
+            }
             // GUIMessage::Send(message) => self.send_message(vec![message]),
             GUIMessage::VaultMessage(message, vault) => match message {
                 VaultMessage::Entry(entry_message, key) => match entry_message {
@@ -390,7 +433,6 @@ impl Application for ManagerState {
                             ManagerMessage::DeleteEmptyVault(vault),
                             ManagerMessage::Info,
                         ]);
-                        // self.temp_message = TempMessage::DeleteEmptyVault(vault);
                     } else {
                         self.temp_message = TempMessage::DeleteVault(vault);
                     }
@@ -398,8 +440,8 @@ impl Application for ManagerState {
                         self.internal_state.push(PasswordState::default().into());
                     }
                 }
-                VaultMessage::Toggle(name) => {
-                    if let Some(value) = self.vaults.get_mut(&name) {
+                VaultMessage::Toggle => {
+                    if let Some(value) = self.vaults.get_mut(&vault) {
                         value.toggle();
                     }
                 }
@@ -493,17 +535,23 @@ impl Application for ManagerState {
                         InternalState::Password(password_state) => {
                             if password_state.valid() {
                                 self.handle_password_submit(password_state.password.clone());
+                            } else {
+                                self.notice = Some("Passwords do not match".into());
+                                return close_popup();
                             }
                         }
                         InternalState::New(new_state) => {
                             if let Some(schema) = self.info.get(&new_state.vault) {
-                                println!("{:?}", schema);
+                                // println!("{:?}", schema);
                                 if self.temp_message.complete() {
                                     if schema.is_empty() {
                                         self.internal_state.push(PasswordState::new(true).into());
                                     } else if !schema.data.contains_key(&new_state.name) {
                                         self.internal_state.push(PasswordState::default().into());
                                     }
+                                } else {
+                                    self.notice = Some("Fill all fields before submitting".into());
+                                    return close_popup();
                                 }
                             }
                         }
@@ -520,6 +568,9 @@ impl Application for ManagerState {
                                     } else {
                                         self.internal_state.push(PasswordState::default().into());
                                     }
+                                } else {
+                                    self.notice = Some("Fill all fields before submitting".into());
+                                    return close_popup();
                                 }
                             }
                         }
@@ -540,6 +591,15 @@ impl Application for ManagerState {
                                 let message = ManagerMessage::NewVault(prompt_state.vault.clone());
                                 self.send_message(vec![message, ManagerMessage::Info]);
                                 self.internal_state.pop();
+                            } else {
+                                if self.info.data.contains_key(&prompt_state.vault) {
+                                    self.notice = Some("This vault already exists".into());
+                                    return close_popup();
+                                }
+                                if prompt_state.vault.is_empty() {
+                                    self.notice = Some("Need a name to create vault".into());
+                                    return close_popup();
+                                }
                             }
                         }
                     }
@@ -639,30 +699,6 @@ impl Application for ManagerState {
 
     fn theme(&self) -> Theme {
         self.get_theme()
-    }
-}
-struct ButtonStyle;
-impl button::StyleSheet for ButtonStyle {
-    type Style = iced::Theme;
-
-    fn active(&self, style: &Self::Style) -> button::Appearance {
-        let plt = style.extended_palette();
-        button::Appearance {
-            text_color: plt.primary.strong.text.into(),
-            background: Some(plt.primary.strong.color.into()),
-            // background: Some(Color::from([1.0; 3]).into()),
-            ..Default::default()
-        }
-    }
-
-    fn hovered(&self, style: &Self::Style) -> button::Appearance {
-        let plt = style.extended_palette();
-
-        button::Appearance {
-            background: Some(plt.primary.weak.color.into()),
-            text_color: plt.primary.weak.text.into(),
-            ..self.active(style)
-        }
     }
 }
 

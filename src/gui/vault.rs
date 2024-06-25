@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use iced::{
     alignment, theme,
-    widget::{button, column, container, row, text},
+    widget::{button, column, container, row, text, tooltip},
     Alignment, Element, Font, Length, Theme,
 };
 
@@ -20,7 +20,7 @@ pub struct Vault {
 #[derive(Debug, Clone)]
 pub enum VaultMessage {
     Entry(EntryMessage, String),
-    Toggle(String),
+    Toggle,
     NewEntry,
     Delete,
 }
@@ -63,9 +63,13 @@ impl Vault {
 
     pub fn view(&self) -> Element<VaultMessage> {
         let name = text(self.name.to_string()).size(20).width(Length::Fill);
-        let delete_button = button("X")
-            .on_press(VaultMessage::Delete)
-            .style(theme::Button::Destructive);
+        let delete_button = tooltip(
+            button("X")
+                .on_press(VaultMessage::Delete)
+                .style(theme::Button::Destructive),
+            "Delete vault",
+            tooltip::Position::Bottom,
+        );
         let symbol = if self.expanded {
             text("- ")
         } else {
@@ -105,7 +109,7 @@ impl Vault {
                 container::Appearance::default().with_border(palette.background.strong.color, 2.0)
             });
         let header_button = button(header)
-            .on_press(VaultMessage::Toggle(self.name.clone()))
+            .on_press(VaultMessage::Toggle)
             .style(theme::Button::Text);
         let header = container(header_button).style(|theme: &Theme| {
             let palette = theme.extended_palette();

@@ -9,7 +9,7 @@ pub enum Event {
     Connected(Connection),
     Disconnected,
     ReceiveOutput(Output),
-    ReceiveError,
+    ReceiveError(String),
     // ReceiveSchema(Schema),
     // ReceiveRead(Reads<Store>),
     // ReceiveList(Vec<String>),
@@ -79,8 +79,8 @@ pub fn connect() -> Subscription<Event> {
                             }
                             // TODO: actually pass along errors so they can be reacted to and
                             // reported
-                            Err(_) => {
-                                let _ = output.send(Event::ReceiveError).await;
+                            Err(e) => {
+                                let _ = output.send(Event::ReceiveError(e.to_string())).await;
                             }
                         }
                     }
