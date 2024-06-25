@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::{
+    collections::{BTreeMap},
+    str::FromStr,
+};
 
 use crate::{
     config::{
@@ -7,7 +10,7 @@ use crate::{
     },
     gui::{
         connection,
-        entry::{Entry, EntryMessage},
+        entry::{EntryMessage},
         gui_message::GUIMessage,
         state::{entry::EntryState, new_entry::NewEntryState, password::PasswordState},
         temp_message::TempMessage,
@@ -146,14 +149,16 @@ impl ManagerState {
     fn update(&mut self, info: Info) {
         let mut vaults = BTreeMap::new();
         for (name, schema) in info.data.iter() {
-            let mut entries = vec![];
-            for (key, value) in schema.data.iter() {
-                entries.push(Entry::new(key.to_string(), value.to_string()));
+            let mut vault = Vault::new(name.into(), BTreeMap::new());
+            vault.update(schema);
+            if let Some(curr_vault) = self.vaults.get(name) {
+                vault.expanded = curr_vault.expanded;
             }
-            vaults.insert(name.to_string(), Vault::new(name.to_string(), entries));
+            vaults.insert(name.into(), vault);
         }
-        self.info = info;
+
         self.vaults = vaults;
+        self.info = info;
     }
     fn update_entry(&mut self, data: Reads<Store>) {
         // TODO: check if robust, could be that a response was given to a lower down state, but I
@@ -395,7 +400,7 @@ impl Application for ManagerState {
                 }
                 VaultMessage::Toggle(name) => {
                     if let Some(value) = self.vaults.get_mut(&name) {
-                        value.expanded = !value.expanded;
+                        value.toggle();
                     }
                 }
             },
