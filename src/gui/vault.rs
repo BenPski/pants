@@ -8,10 +8,7 @@ use iced::{
 
 use crate::schema::Schema;
 
-use super::{
-    entry::{Entry, EntryMessage},
-    expand::Expand,
-};
+use super::entry::{Entry, EntryMessage};
 
 #[derive(Default)]
 pub struct Vault {

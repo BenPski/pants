@@ -1,4 +1,4 @@
-use iced::{Background, Border, Color, Pixels, Shadow, Theme};
+use iced::{Background, Color, Shadow, Theme};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Appearance {

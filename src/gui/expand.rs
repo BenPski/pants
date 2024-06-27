@@ -1,11 +1,11 @@
 use iced::{
     advanced::{
-        layout::{self, Limits},
+        layout::{self},
         overlay, renderer,
         widget::Tree,
         Widget,
     },
-    mouse, touch, Alignment, Element, Event, Length, Padding, Pixels, Point, Size,
+    mouse, touch, Alignment, Element, Event, Length, Padding, Pixels, Size,
 };
 use iced_futures::core::event;
 
@@ -163,13 +163,13 @@ where
         layout::flex::resolve(
             layout::flex::Axis::Vertical,
             renderer,
-            &limits,
+            limits,
             self.width,
             self.height,
             self.padding,
             self.spacing,
             self.align_items,
-            &self.elements(),
+            self.elements(),
             &mut tree.children,
         )
     }
@@ -197,14 +197,14 @@ where
 
     fn on_event(
         &mut self,
-        tree: &mut Tree,
+        _tree: &mut Tree,
         event: iced::Event,
         layout: layout::Layout<'_>,
         cursor: iced::advanced::mouse::Cursor,
-        renderer: &Renderer,
-        clipboard: &mut dyn iced::advanced::Clipboard,
+        _renderer: &Renderer,
+        _clipboard: &mut dyn iced::advanced::Clipboard,
         shell: &mut iced::advanced::Shell<'_, Message>,
-        viewport: &iced::Rectangle,
+        _viewport: &iced::Rectangle,
     ) -> iced_futures::core::event::Status {
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
@@ -214,12 +214,12 @@ where
                     println!("clicked header");
                     self.expand = !self.expand;
                     shell.invalidate_layout();
-                    return event::Status::Captured;
+                    event::Status::Captured
                 } else {
-                    return event::Status::Ignored;
+                    event::Status::Ignored
                 }
             }
-            _ => return event::Status::Ignored,
+            _ => event::Status::Ignored,
         }
         // let n = self.num_elements();
         // self.elements
