@@ -2,11 +2,10 @@ use iced::{
     widget::{button, column, container, pick_list, row, text, text_input},
     Element, Length,
 };
-use iced_aw::Card;
 use secrecy::ExposeSecret;
 
 use crate::{
-    gui::gui_message::GUIMessage,
+    gui::{card::Card, gui_message::GUIMessage},
     store::{StoreChoice, StoreHash},
 };
 
@@ -41,7 +40,9 @@ impl NewEntryState {
     pub fn view(&self) -> Element<GUIMessage> {
         let header = text(format!("New entry for {}", self.vault));
         let name_prefix = text("Name:");
-        let name_input = text_input("Name", &self.name).on_input(GUIMessage::ChangeName);
+        let name_input = text_input("Name", &self.name)
+            .on_input(GUIMessage::ChangeName)
+            .on_submit(GUIMessage::Submit);
         let style_choice = pick_list(
             StoreChoice::all(),
             Some(self.choice),
@@ -55,7 +56,8 @@ impl NewEntryState {
                     self.value.get("password").unwrap().expose_secret(),
                 )
                 .width(Length::Fill)
-                .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()));
+                .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()))
+                .on_submit(GUIMessage::Submit);
                 let password_generate = button("Generate").on_press(GUIMessage::GeneratePassword);
 
                 container(row![prefix, password_input, password_generate])
@@ -68,13 +70,15 @@ impl NewEntryState {
                     self.value.get("username").unwrap().expose_secret(),
                 )
                 .width(Length::Fill)
-                .on_input(|v| GUIMessage::UpdateField("username".to_string(), v.into()));
+                .on_input(|v| GUIMessage::UpdateField("username".to_string(), v.into()))
+                .on_submit(GUIMessage::Submit);
                 let password_input = text_input(
                     "Password",
                     self.value.get("password").unwrap().expose_secret(),
                 )
                 .width(Length::Fill)
-                .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()));
+                .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()))
+                .on_submit(GUIMessage::Submit);
 
                 let password_generate = button("Generate").on_press(GUIMessage::GeneratePassword);
                 container(column![
@@ -85,6 +89,26 @@ impl NewEntryState {
         };
         let create_button = button("Create").on_press(GUIMessage::Submit);
         let cancel_button = button("Cancel").on_press(GUIMessage::Exit);
+        // let header = container(header).style(|theme: &iced::Theme| {
+        //     let palette = theme.extended_palette();
+        //     container::Appearance::default().with_background(palette.background.weak.color)
+        // });
+        // let card = column![
+        //     header,
+        //     container(column![
+        //         row![name_prefix, name_input],
+        //         style_choice,
+        //         data_input,
+        //         row![create_button, cancel_button]
+        //     ])
+        // ];
+        // let card = container(card)
+        //     .style(|theme: &iced::Theme| {
+        //         let palette = theme.extended_palette();
+        //         container::Appearance::default().with_border(palette.primary.strong.color, 1.0)
+        //     })
+        //     .max_width(500.0);
+        // card.into()
         Card::new(
             header,
             container(column![

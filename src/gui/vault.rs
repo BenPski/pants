@@ -2,12 +2,16 @@ use std::collections::BTreeMap;
 
 use iced::{
     alignment, theme,
-    widget::{button, column, container, row, text, tooltip}, Element, Font, Length, Theme,
+    widget::{button, column, container, row, text, tooltip},
+    Element, Font, Length, Theme,
 };
 
 use crate::schema::Schema;
 
-use super::entry::{Entry, EntryMessage};
+use super::{
+    entry::{Entry, EntryMessage},
+    expand::Expand,
+};
 
 #[derive(Default)]
 pub struct Vault {
@@ -120,5 +124,6 @@ impl Vault {
             column![header]
         };
         container(display).into()
+        // Expand::new(header, content, true).into()
     }
 }

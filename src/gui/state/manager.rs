@@ -715,9 +715,9 @@ impl Application for ManagerState {
                     Some(GUIMessage::NewVault)
                 }
                 (key::Key::Character("q"), keyboard::Modifiers::COMMAND) => Some(GUIMessage::Close),
-                // (key::Key::Named(key::Named::Tab), _) => {
-                //     Some(GUIMessage::TabPressed(modifiers.shift()))
-                // }
+                (key::Key::Named(key::Named::Tab), _) => {
+                    Some(GUIMessage::TabPressed(modifiers.shift()))
+                }
                 _ => {
                     // println!("{:?}, {:?}", key, modifiers);
                     None

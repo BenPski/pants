@@ -2,10 +2,12 @@ use iced::{
     widget::{button, column, container, text, text_input},
     Element, Length,
 };
-use iced_aw::Card;
 use secrecy::ExposeSecret;
 
-use crate::{gui::gui_message::GUIMessage, Password};
+use crate::{
+    gui::{card::Card, gui_message::GUIMessage},
+    Password,
+};
 
 #[derive(Debug, Clone)]
 pub struct PasswordState {

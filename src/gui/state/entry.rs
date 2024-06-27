@@ -2,11 +2,10 @@ use iced::{
     widget::{button, column, container, row, text, text_input},
     Element, Length,
 };
-use iced_aw::Card;
 use secrecy::ExposeSecret;
 
 use crate::{
-    gui::gui_message::GUIMessage,
+    gui::{card::Card, gui_message::GUIMessage},
     store::{Store, StoreChoice, StoreHash},
     Password,
 };
