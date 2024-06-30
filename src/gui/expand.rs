@@ -125,8 +125,6 @@ where
     Renderer: renderer::Renderer,
 {
     fn children(&self) -> Vec<iced::advanced::widget::Tree> {
-        println!("children");
-
         self.elements
             .iter()
             .take(self.num_elements())
@@ -135,7 +133,6 @@ where
     }
 
     fn diff(&self, tree: &mut Tree) {
-        println!("diff");
         tree.diff_children(
             &self
                 .elements
@@ -146,7 +143,6 @@ where
     }
 
     fn size(&self) -> iced::Size<Length> {
-        println!("size");
         Size {
             width: self.width,
             height: self.height,
@@ -159,7 +155,6 @@ where
         renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
     ) -> iced::advanced::layout::Node {
-        println!("Layout");
         layout::flex::resolve(
             layout::flex::Axis::Vertical,
             renderer,
@@ -181,7 +176,6 @@ where
         renderer: &Renderer,
         operation: &mut dyn iced::advanced::widget::Operation<Message>,
     ) {
-        println!("operate");
         operation.container(None, layout.bounds(), &mut |operation| {
             self.elements()
                 .iter()
@@ -197,16 +191,36 @@ where
 
     fn on_event(
         &mut self,
-        _tree: &mut Tree,
+        tree: &mut Tree,
         event: iced::Event,
         layout: layout::Layout<'_>,
         cursor: iced::advanced::mouse::Cursor,
-        _renderer: &Renderer,
-        _clipboard: &mut dyn iced::advanced::Clipboard,
+        renderer: &Renderer,
+        clipboard: &mut dyn iced::advanced::Clipboard,
         shell: &mut iced::advanced::Shell<'_, Message>,
-        _viewport: &iced::Rectangle,
+        viewport: &iced::Rectangle,
     ) -> iced_futures::core::event::Status {
-        match event {
+        let n = self.num_elements();
+        let child_event = self
+            .elements
+            .iter_mut()
+            .take(n)
+            .zip(&mut tree.children)
+            .zip(layout.children())
+            .map(|((child, state), layout)| {
+                child.as_widget_mut().on_event(
+                    state,
+                    event.clone(),
+                    layout,
+                    cursor,
+                    renderer,
+                    clipboard,
+                    shell,
+                    viewport,
+                )
+            })
+            .fold(event::Status::Ignored, event::Status::merge);
+        let header_event = match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
                 let bounds = layout.children().next().unwrap().bounds();
@@ -220,26 +234,8 @@ where
                 }
             }
             _ => event::Status::Ignored,
-        }
-        // let n = self.num_elements();
-        // self.elements
-        //     .iter_mut()
-        //     .take(n)
-        //     .zip(&mut tree.children)
-        //     .zip(layout.children())
-        //     .map(|((child, state), layout)| {
-        //         child.as_widget_mut().on_event(
-        //             state,
-        //             event.clone(),
-        //             layout,
-        //             cursor,
-        //             renderer,
-        //             clipboard,
-        //             shell,
-        //             viewport,
-        //         )
-        //     })
-        //     .fold(event::Status::Ignored, event::Status::merge)
+        };
+        event::Status::merge(child_event, header_event)
     }
 
     fn mouse_interaction(

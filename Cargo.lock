@@ -2607,6 +2607,7 @@ dependencies = [
  "iced_aw",
  "iced_futures",
  "inquire",
+ "once_cell",
  "pants-gen",
  "rand",
  "secrecy",

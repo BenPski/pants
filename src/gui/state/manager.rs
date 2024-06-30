@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+};
 
 use crate::{
     config::{
@@ -9,6 +12,7 @@ use crate::{
         connection,
         entry::EntryMessage,
         gui_message::GUIMessage,
+        shortcut::Shortcut,
         state::{entry::EntryState, new_entry::NewEntryState, password::PasswordState},
         temp_message::TempMessage,
         vault::{Vault, VaultMessage},
@@ -25,18 +29,55 @@ use iced::{
     widget::{self, button, column, container, row, scrollable, text},
     window, Application, Border, Command, Element, Length, Subscription, Theme,
 };
-
-use iced_aw::style::MenuBarStyle;
 use iced_aw::{
     floating_element,
     menu::{self, Item, Menu, StyleSheet},
+    menu_bar, menu_items, modal,
+    style::MenuBarStyle,
 };
-use iced_aw::{menu_bar, menu_items, modal};
 use iced_futures::MaybeSend;
+use once_cell::sync::Lazy;
 use pants_gen::password::PasswordSpec;
 use secrecy::{ExposeSecret, Secret};
 
 use super::prompt::PromptState;
+
+static SHORTCUTS: Lazy<HashMap<String, Shortcut>> = Lazy::new(|| {
+    HashMap::from_iter(vec![
+        (
+            "New Vault".to_string(),
+            Shortcut::new(
+                keyboard::Key::Character("n".into()),
+                Some(keyboard::Modifiers::COMMAND),
+                GUIMessage::NewVault,
+            ),
+        ),
+        (
+            "Quit".to_string(),
+            Shortcut::new(
+                keyboard::Key::Character("q".into()),
+                Some(keyboard::Modifiers::COMMAND),
+                GUIMessage::Close,
+            ),
+        ),
+        (
+            "Tab forward".to_string(),
+            Shortcut::new(
+                keyboard::Key::Named(keyboard::key::Named::Tab),
+                None,
+                GUIMessage::TabPressed(false),
+            ),
+        ),
+        (
+            "Tab backwards".to_string(),
+            Shortcut::new(
+                keyboard::Key::Named(keyboard::key::Named::Tab),
+                Some(keyboard::Modifiers::SHIFT),
+                GUIMessage::TabPressed(true),
+            ),
+        ),
+    ])
+});
 
 pub struct ManagerState {
     config: ClientConfig,
@@ -218,11 +259,12 @@ impl ManagerState {
             })
             .collect::<Vec<_>>();
         let theme_menu = Menu::new(themes).max_width(180.0).offset(15.0).spacing(5.0);
-        let new_vault_item = row![text("New Vault").width(Length::Fill), text("Ctrl+n")];
         #[rustfmt::skip]
         let menu = menu_bar!(
-            (section_header("Edit"), menu(menu_items!(
-                (action_item(new_vault_item, GUIMessage::NewVault)))
+            (section_header("File"), menu(menu_items!(
+                (action_item_shortcut("New Vault".to_string()))
+                (action_item_shortcut("Quit".to_string()))
+                )
             ))
             (section_header("Config"), menu(menu_items!(
                 (submenu_item("Theme"), theme_menu)))
@@ -708,38 +750,56 @@ impl Application for ManagerState {
         let connection_subscriber = connection::connect().map(GUIMessage::Event);
         use keyboard::key;
 
+        let mut shortcuts = Vec::new();
+        shortcuts.push(Shortcut::new(
+            key::Key::Character("n".into()),
+            Some(keyboard::Modifiers::COMMAND),
+            GUIMessage::NewVault,
+        ));
+
         let keyboard_subscriber = keyboard::on_key_press(|key, modifiers| {
-            // println!("{:?}, {:?}", key, modifiers);
-            match (key.as_ref(), modifiers) {
-                (key::Key::Character("n"), keyboard::Modifiers::COMMAND) => {
-                    Some(GUIMessage::NewVault)
-                }
-                (key::Key::Character("q"), keyboard::Modifiers::COMMAND) => Some(GUIMessage::Close),
-                (key::Key::Named(key::Named::Tab), _) => {
-                    Some(GUIMessage::TabPressed(modifiers.shift()))
-                }
-                _ => {
-                    // println!("{:?}, {:?}", key, modifiers);
-                    None
+            for (_, shortcut) in SHORTCUTS.iter() {
+                let res = shortcut.check(&key, &modifiers);
+                if res.is_some() {
+                    return res;
                 }
             }
-            // let keyboard::Key::Named(key) = key else {
-            //     return None;
-            // };
-            //
-            // match (key, modifiers) {
-            //     (key::Named::Tab, _) => Some(Message::TabPressed {
-            //         shift: modifiers.shift(),
-            //     }),
-            //     (key::Named::ArrowUp, keyboard::Modifiers::SHIFT) => {
-            //         Some(Message::ToggleFullscreen(window::Mode::Fullscreen))
-            //     }
-            //     (key::Named::ArrowDown, keyboard::Modifiers::SHIFT) => {
-            //         Some(Message::ToggleFullscreen(window::Mode::Windowed))
-            //     }
-            //     _ => None,
-            // }
+            None
         });
+
+        // let keyboard_subscriber = keyboard::on_key_press(|key, modifiers| {
+        //     // println!("{:?}, {:?}", key, modifiers);
+        //     println!("{:?}", keyboard::Modifiers::COMMAND);
+        //     match (key.as_ref(), modifiers) {
+        //         (key::Key::Character("n"), keyboard::Modifiers::COMMAND) => {
+        //             Some(GUIMessage::NewVault)
+        //         }
+        //         (key::Key::Character("q"), keyboard::Modifiers::COMMAND) => Some(GUIMessage::Close),
+        //         (key::Key::Named(key::Named::Tab), _) => {
+        //             Some(GUIMessage::TabPressed(modifiers.shift()))
+        //         }
+        //         _ => {
+        //             // println!("{:?}, {:?}", key, modifiers);
+        //             None
+        //         }
+        //     }
+        //     // let keyboard::Key::Named(key) = key else {
+        //     //     return None;
+        //     // };
+        //     //
+        //     // match (key, modifiers) {
+        //     //     (key::Named::Tab, _) => Some(Message::TabPressed {
+        //     //         shift: modifiers.shift(),
+        //     //     }),
+        //     //     (key::Named::ArrowUp, keyboard::Modifiers::SHIFT) => {
+        //     //         Some(Message::ToggleFullscreen(window::Mode::Fullscreen))
+        //     //     }
+        //     //     (key::Named::ArrowDown, keyboard::Modifiers::SHIFT) => {
+        //     //         Some(Message::ToggleFullscreen(window::Mode::Windowed))
+        //     //     }
+        //     //     _ => None,
+        //     // }
+        // });
 
         Subscription::batch(vec![connection_subscriber, keyboard_subscriber])
     }
@@ -773,6 +833,22 @@ fn action_item<'a>(
     message: GUIMessage,
 ) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
     base_button(label, Some(message)).width(Length::Fill)
+}
+
+fn action_item_shortcut<'a>(
+    name: String,
+) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+    if let Some(shortcut) = SHORTCUTS.get(&name) {
+        base_button(
+            row![
+                container(text(name)).width(Length::Fill),
+                text(shortcut.key_display())
+            ],
+            Some(shortcut.message().clone()),
+        )
+    } else {
+        base_button(text(name), None)
+    }
 }
 
 fn action_selected_item<'a>(
