@@ -22,7 +22,7 @@ use crate::{
     output::Output,
     reads::Reads,
     store::{Store, StoreChoice},
-    utils, Password,
+    Password,
 };
 use iced::{
     alignment, keyboard, theme,
@@ -42,11 +42,11 @@ use secrecy::{ExposeSecret, Secret};
 
 use super::prompt::PromptState;
 
-static THEMES: Lazy<HashMap<String, Theme>> = Lazy::new(|| {
+static THEMES: Lazy<BTreeMap<String, Theme>> = Lazy::new(|| {
     Theme::ALL
         .iter()
         .map(|t| (t.to_string(), t.clone()))
-        .collect::<HashMap<_, _>>()
+        .collect::<BTreeMap<_, _>>()
 });
 
 static SHORTCUTS: Lazy<HashMap<String, Shortcut>> = Lazy::new(|| {
@@ -252,7 +252,7 @@ impl ManagerState {
     fn view(&self) -> Element<GUIMessage> {
         let top_layer = self.internal_state.last().map(|state| state.view());
 
-        let menu = |items| Menu::new(items).max_width(180.0).offset(0.0).spacing(0.0);
+        let menu = |items| Menu::new(items).max_width(200.0).offset(0.0).spacing(0.0);
         let themes: Vec<Item<GUIMessage, iced::Theme, iced::Renderer>> = THEMES
             .iter()
             .map(|(n, t)| {

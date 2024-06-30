@@ -1,4 +1,4 @@
-use iced::keyboard::{self, Modifiers};
+use iced::keyboard::{self};
 
 use super::gui_message::GUIMessage;
 

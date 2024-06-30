@@ -4,7 +4,7 @@ use iced::{
 };
 use iced_futures::core::event;
 
-use super::card_style::StyleSheet;
+use crate::gui::style::card::StyleSheet;
 
 pub struct Card<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where

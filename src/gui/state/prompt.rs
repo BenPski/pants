@@ -3,7 +3,7 @@ use iced::{
     Element,
 };
 
-use crate::gui::{card::Card, gui_message::GUIMessage};
+use crate::gui::{gui_message::GUIMessage, widget::card::Card};
 
 #[derive(Debug, Clone, Default)]
 pub struct PromptState {

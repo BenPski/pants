@@ -5,7 +5,7 @@ use iced::{
 use secrecy::ExposeSecret;
 
 use crate::{
-    gui::{card::Card, gui_message::GUIMessage},
+    gui::{gui_message::GUIMessage, widget::card::Card},
     store::{Store, StoreChoice, StoreHash},
     Password,
 };
