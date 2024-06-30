@@ -42,6 +42,13 @@ use secrecy::{ExposeSecret, Secret};
 
 use super::prompt::PromptState;
 
+static THEMES: Lazy<HashMap<String, Theme>> = Lazy::new(|| {
+    Theme::ALL
+        .iter()
+        .map(|t| (t.to_string(), t.clone()))
+        .collect::<HashMap<_, _>>()
+});
+
 static SHORTCUTS: Lazy<HashMap<String, Shortcut>> = Lazy::new(|| {
     HashMap::from_iter(vec![
         (
@@ -239,25 +246,25 @@ impl ManagerState {
     }
 
     fn get_theme(&self) -> Theme {
-        let map = utils::theme_map();
-        map.get(&self.config.theme).cloned().unwrap_or_default()
+        THEMES.get(&self.config.theme).cloned().unwrap_or_default()
     }
 
     fn view(&self) -> Element<GUIMessage> {
         let top_layer = self.internal_state.last().map(|state| state.view());
 
         let menu = |items| Menu::new(items).max_width(180.0).offset(0.0).spacing(0.0);
-        let themes: Vec<Item<GUIMessage, iced::Theme, iced::Renderer>> = Theme::ALL
+        let themes: Vec<Item<GUIMessage, iced::Theme, iced::Renderer>> = THEMES
             .iter()
-            .map(|t| {
-                let item = if t.to_string() == self.config.theme {
-                    action_selected_item(text(t), GUIMessage::ChangeTheme(t.clone()))
+            .map(|(n, t)| {
+                let item = if *n == self.config.theme {
+                    action_selected_item(text(n), GUIMessage::ChangeTheme(t.clone()))
                 } else {
-                    action_item(text(t), GUIMessage::ChangeTheme(t.clone()))
+                    action_item(text(n), GUIMessage::ChangeTheme(t.clone()))
                 };
                 Item::new(item)
             })
             .collect::<Vec<_>>();
+
         let theme_menu = Menu::new(themes).max_width(180.0).offset(15.0).spacing(5.0);
         #[rustfmt::skip]
         let menu = menu_bar!(
