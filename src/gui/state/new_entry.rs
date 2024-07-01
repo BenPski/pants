@@ -1,5 +1,5 @@
 use iced::{
-    widget::{button, column, container, pick_list, row, text, text_input, toggler},
+    widget::{button, column, container, pick_list, row, text, text_input},
     Element, Length,
 };
 use secrecy::ExposeSecret;

@@ -28,12 +28,10 @@ impl Shortcut {
             } else {
                 None
             }
+        } else if self.base_key == *key {
+            Some(self.message.clone())
         } else {
-            if self.base_key == *key {
-                Some(self.message.clone())
-            } else {
-                None
-            }
+            None
         }
     }
 

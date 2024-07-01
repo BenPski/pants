@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use iced::{
     alignment, theme,
     widget::{button, column, container, row, text, tooltip},
-    Element, Font, Length, Theme,
+    Element, Length,
 };
 
 use crate::schema::Schema;

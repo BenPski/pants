@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    str::FromStr,
-};
+use std::{collections::BTreeMap, str::FromStr};
 
 use crate::{
     config::{
@@ -12,7 +9,6 @@ use crate::{
         connection,
         entry::EntryMessage,
         gui_message::GUIMessage,
-        shortcut::Shortcut,
         state::{entry::EntryState, new_entry::NewEntryState, password::PasswordState},
         temp_message::TempMessage,
         vault::{Vault, VaultMessage},
@@ -37,7 +33,6 @@ use iced_aw::{
     style::MenuBarStyle,
 };
 use iced_futures::MaybeSend;
-use once_cell::sync::Lazy;
 use pants_gen::password::PasswordSpec;
 use secrecy::{ExposeSecret, Secret};
 
@@ -728,14 +723,6 @@ impl Application for ManagerState {
 
     fn subscription(&self) -> Subscription<Self::Message> {
         let connection_subscriber = connection::connect().map(GUIMessage::Event);
-        use keyboard::key;
-
-        let mut shortcuts = Vec::new();
-        shortcuts.push(Shortcut::new(
-            key::Key::Character("n".into()),
-            Some(keyboard::Modifiers::COMMAND),
-            GUIMessage::NewVault,
-        ));
 
         let keyboard_subscriber = keyboard::on_key_press(|key, modifiers| {
             for (_, shortcut) in SHORTCUTS.iter() {

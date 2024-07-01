@@ -1,4 +1,4 @@
-use iced::{Background, Border, Color, Shadow, Theme};
+use iced::{Border, Color, Theme};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Appearance {
@@ -15,7 +15,6 @@ impl Appearance {
                 color: Color::TRANSPARENT,
                 radius: 0.0.into(),
             },
-            ..self
         }
     }
 }
