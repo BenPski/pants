@@ -30,16 +30,16 @@ impl Appearance {
     }
 }
 
-/// A set of rules that dictate the [`Appearance`] of a container.
+/// A set of rules that dictate the [`Appearance`] of a card.
 pub trait StyleSheet {
     /// The supported style of the [`StyleSheet`].
     type Style: Default;
 
-    /// Produces the [`Appearance`] of a container.
+    /// Produces the [`Appearance`] of a card.
     fn appearance(&self, style: &Self::Style) -> Appearance;
 }
 ///
-/// The style of a container.
+/// The style of a card.
 #[derive(Default)]
 pub enum Card {
     /// A simple box.
