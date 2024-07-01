@@ -1,3 +1,4 @@
+use iced::Theme;
 use secrecy::Secret;
 
 use crate::{store::StoreChoice, Password};
@@ -22,6 +23,11 @@ pub enum GUIMessage {
     GeneratePassword,
     CopyClipboard(Option<Password>),
     ClearClipboard,
+    ChangeTheme(Theme),
     Event(connection::Event),
+    ClosePopup,
+    TabPressed(bool),
+    Close,
+    Nothing,
     // Send(Message),
 }

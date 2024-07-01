@@ -2,10 +2,12 @@ use iced::{
     widget::{button, column, container, text, text_input},
     Element, Length,
 };
-use iced_aw::Card;
 use secrecy::ExposeSecret;
 
-use crate::{gui::gui_message::GUIMessage, Password};
+use crate::{
+    gui::{gui_message::GUIMessage, widget::card::Card, INPUT_ID},
+    Password,
+};
 
 #[derive(Debug, Clone)]
 pub struct PasswordState {
@@ -33,6 +35,9 @@ impl PasswordState {
             },
         }
     }
+    pub fn confirm() -> Self {
+        Self::new(true)
+    }
     pub fn valid(&self) -> bool {
         if let Some(confirm) = &self.confirm {
             self.password.expose_secret() == confirm.expose_secret()
@@ -43,6 +48,7 @@ impl PasswordState {
     pub fn view(&self) -> Element<GUIMessage> {
         let header = text("Vault password");
         let password_input = text_input("vault password", self.password.clone().expose_secret())
+            .id(INPUT_ID.clone())
             .on_input(|p| GUIMessage::PasswordChanged(p.into()))
             .on_submit(GUIMessage::Submit)
             .width(Length::Fill)

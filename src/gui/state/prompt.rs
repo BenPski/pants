@@ -2,9 +2,8 @@ use iced::{
     widget::{button, column, container, row, text, text_input},
     Element,
 };
-use iced_aw::Card;
 
-use crate::gui::gui_message::GUIMessage;
+use crate::gui::{gui_message::GUIMessage, widget::card::Card, INPUT_ID};
 
 #[derive(Debug, Clone, Default)]
 pub struct PromptState {
@@ -15,6 +14,7 @@ impl PromptState {
     pub fn view(&self) -> Element<GUIMessage> {
         let header = text("New vault name");
         let name_input = text_input("Name", &self.vault)
+            .id(INPUT_ID.clone())
             .on_input(GUIMessage::PromptChanged)
             .on_submit(GUIMessage::Submit);
 
