@@ -16,6 +16,7 @@ where
     max_height: f32,
     padding: Padding,
     spacing: f32,
+    clip: bool,
     style: Theme::Style,
     elements: Vec<Element<'a, Message, Theme, Renderer>>,
 }
@@ -37,6 +38,7 @@ where
             padding: Padding::new(10.0),
             spacing: 5.0,
             style: Default::default(),
+            clip: false,
             elements: vec![head.into(), content.into()],
         }
     }
@@ -63,6 +65,21 @@ where
 
     pub fn style(mut self, value: impl Into<Theme::Style>) -> Self {
         self.style = value.into();
+        self
+    }
+
+    pub fn clip(mut self, value: impl Into<bool>) -> Self {
+        self.clip = value.into();
+        self
+    }
+
+    pub fn padding(mut self, value: impl Into<Padding>) -> Self {
+        self.padding = value.into();
+        self
+    }
+
+    pub fn spacing(mut self, value: impl Into<f32>) -> Self {
+        self.spacing = value.into();
         self
     }
 }
@@ -153,6 +170,11 @@ where
         viewport: &iced::Rectangle,
     ) {
         if let Some(clipped_viewport) = layout.bounds().intersection(viewport) {
+            let viewport = if self.clip {
+                &clipped_viewport
+            } else {
+                viewport
+            };
             let appearance = theme.appearance(&self.style);
             renderer.fill_quad(
                 renderer::Quad {
@@ -215,20 +237,14 @@ where
                 },
                 layout,
                 cursor,
-                &clipped_viewport,
+                viewport,
             );
             // draw content
             let ((content, state), layout) = items[1];
 
-            content.as_widget().draw(
-                state,
-                renderer,
-                theme,
-                style,
-                layout,
-                cursor,
-                &clipped_viewport,
-            );
+            content
+                .as_widget()
+                .draw(state, renderer, theme, style, layout, cursor, viewport);
         }
     }
 

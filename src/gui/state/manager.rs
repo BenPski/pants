@@ -252,7 +252,7 @@ impl ManagerState {
     fn view(&self) -> Element<GUIMessage> {
         let top_layer = self.internal_state.last().map(|state| state.view());
 
-        let menu = |items| Menu::new(items).max_width(200.0).offset(0.0).spacing(0.0);
+        let menu = |items| Menu::new(items).max_width(180.0).offset(0.0).spacing(0.0);
         let themes: Vec<Item<GUIMessage, iced::Theme, iced::Renderer>> = THEMES
             .iter()
             .map(|(n, t)| {
@@ -265,7 +265,7 @@ impl ManagerState {
             })
             .collect::<Vec<_>>();
 
-        let theme_menu = Menu::new(themes).max_width(180.0).offset(15.0).spacing(5.0);
+        let theme_menu = Menu::new(themes).max_width(200.0).offset(15.0).spacing(5.0);
         #[rustfmt::skip]
         let menu = menu_bar!(
             (section_header("File"), menu(menu_items!(

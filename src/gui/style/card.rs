@@ -2,16 +2,21 @@ use iced::{Background, Color, Shadow, Theme};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Appearance {
-    /// The text [`Color`] of the container.
+    /// The text [`Color`] of the content.
     pub text_color: Color,
-    /// The [`Background`] of the container.
+    /// The [`Background`] of the content.
     pub background: Background,
-    /// The [`Shadow`] of the container.
+    /// The [`Shadow`] of the content.
     pub shadow: Shadow,
+    /// The text [`Color`] of the header.
     pub header_text_color: Color,
+    /// The [`Background`] of the header.
     pub header_background: Background,
+    /// The radius of the corners of the card.
     pub border_radius: f32,
+    /// The width of the border of the card.
     pub border_width: f32,
+    /// The border color of the card.
     pub border_color: Color,
 }
 
