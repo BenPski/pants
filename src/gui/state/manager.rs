@@ -16,6 +16,7 @@ use crate::{
         state::{entry::EntryState, new_entry::NewEntryState, password::PasswordState},
         temp_message::TempMessage,
         vault::{Vault, VaultMessage},
+        INPUT_ID, SHORTCUTS, THEMES,
     },
     info::Info,
     manager_message::ManagerMessage,
@@ -26,7 +27,7 @@ use crate::{
 };
 use iced::{
     alignment, keyboard, theme,
-    widget::{self, button, column, container, row, scrollable, text},
+    widget::{self, button, column, container, row, scrollable, text, text_input},
     window, Application, Border, Command, Element, Length, Subscription, Theme,
 };
 use iced_aw::{
@@ -41,50 +42,6 @@ use pants_gen::password::PasswordSpec;
 use secrecy::{ExposeSecret, Secret};
 
 use super::prompt::PromptState;
-
-static THEMES: Lazy<BTreeMap<String, Theme>> = Lazy::new(|| {
-    Theme::ALL
-        .iter()
-        .map(|t| (t.to_string(), t.clone()))
-        .collect::<BTreeMap<_, _>>()
-});
-
-static SHORTCUTS: Lazy<HashMap<String, Shortcut>> = Lazy::new(|| {
-    HashMap::from_iter(vec![
-        (
-            "New Vault".to_string(),
-            Shortcut::new(
-                keyboard::Key::Character("n".into()),
-                Some(keyboard::Modifiers::COMMAND),
-                GUIMessage::NewVault,
-            ),
-        ),
-        (
-            "Quit".to_string(),
-            Shortcut::new(
-                keyboard::Key::Character("q".into()),
-                Some(keyboard::Modifiers::COMMAND),
-                GUIMessage::Close,
-            ),
-        ),
-        (
-            "Tab forward".to_string(),
-            Shortcut::new(
-                keyboard::Key::Named(keyboard::key::Named::Tab),
-                None,
-                GUIMessage::TabPressed(false),
-            ),
-        ),
-        (
-            "Tab backwards".to_string(),
-            Shortcut::new(
-                keyboard::Key::Named(keyboard::key::Named::Tab),
-                Some(keyboard::Modifiers::SHIFT),
-                GUIMessage::TabPressed(true),
-            ),
-        ),
-    ])
-});
 
 pub struct ManagerState {
     config: ClientConfig,
@@ -127,8 +84,8 @@ impl ManagerState {
         }
         None
     }
-    fn handle_password_submit(&mut self, password: Password) {
-        let messages = match &self.temp_message {
+    fn handle_password_submit(&mut self, password: Password) -> Command<GUIMessage> {
+        let (command, messages) = match &self.temp_message {
             TempMessage::Get(vault, key) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state.push(
@@ -145,46 +102,47 @@ impl ManagerState {
                     StoreChoice::default(),
                     StoreChoice::default().convert_default().as_hash(),
                 );
-                vec![message]
+                (text_input::focus(INPUT_ID.clone()), vec![message])
             }
             TempMessage::Delete(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                vec![message, ManagerMessage::Info]
+                (Command::none(), vec![message, ManagerMessage::Info])
             }
             TempMessage::New(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                vec![message, ManagerMessage::Info]
+                (Command::none(), vec![message, ManagerMessage::Info])
             }
             TempMessage::Update(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                vec![message, ManagerMessage::Info]
+                (Command::none(), vec![message, ManagerMessage::Info])
             }
             TempMessage::Empty => {
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                vec![]
+                (Command::none(), vec![])
             }
             TempMessage::DeleteVault(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                vec![message, ManagerMessage::Info]
+                (Command::none(), vec![message, ManagerMessage::Info])
             }
             // non-sense
             TempMessage::DeleteEmptyVault(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                vec![message, ManagerMessage::Info]
+                (Command::none(), vec![message, ManagerMessage::Info])
             }
         };
         self.send_message(messages);
+        command
     }
     fn active_state(&self) -> Option<&InternalState> {
         self.internal_state.last()
@@ -247,6 +205,11 @@ impl ManagerState {
 
     fn get_theme(&self) -> Theme {
         THEMES.get(&self.config.theme).cloned().unwrap_or_default()
+    }
+
+    fn push_internal_state(&mut self, state: impl Into<InternalState>) -> Command<GUIMessage> {
+        self.internal_state.push(state.into());
+        text_input::focus(INPUT_ID.clone())
     }
 
     fn view(&self) -> Element<GUIMessage> {
@@ -456,14 +419,14 @@ impl Application for ManagerState {
                     EntryMessage::Delete => {
                         self.temp_message = TempMessage::Delete(vault, key);
                         if self.needs_password() {
-                            self.internal_state.push(PasswordState::default().into());
+                            return self.push_internal_state(PasswordState::default());
                         }
                     }
                     EntryMessage::View => {
                         self.temp_message = TempMessage::Get(vault, key.clone());
 
                         if self.needs_password() {
-                            self.internal_state.push(PasswordState::default().into());
+                            return self.push_internal_state(PasswordState::default());
                         }
                     }
                 },
@@ -474,8 +437,9 @@ impl Application for ManagerState {
                         StoreChoice::default(),
                         StoreChoice::default().convert_default().as_hash(),
                     );
-                    self.internal_state
-                        .push(NewEntryState::for_vault(vault).into());
+                    let command = self.push_internal_state(NewEntryState::for_vault(vault));
+                    let gen_password = delayed_command(0, |_| GUIMessage::GeneratePassword);
+                    return Command::batch(vec![command, gen_password]);
                 }
                 VaultMessage::Delete => {
                     if self.info.get(&vault).unwrap().is_empty() {
@@ -487,7 +451,7 @@ impl Application for ManagerState {
                         self.temp_message = TempMessage::DeleteVault(vault);
                     }
                     if self.needs_password() {
-                        self.internal_state.push(PasswordState::default().into());
+                        return self.push_internal_state(PasswordState::default());
                     }
                 }
                 VaultMessage::Toggle => {
@@ -584,7 +548,8 @@ impl Application for ManagerState {
                     match active_state {
                         InternalState::Password(password_state) => {
                             if password_state.valid() {
-                                self.handle_password_submit(password_state.password.clone());
+                                return self
+                                    .handle_password_submit(password_state.password.clone());
                             } else {
                                 self.notice = Some("Passwords do not match".into());
                                 return close_popup();
@@ -595,9 +560,9 @@ impl Application for ManagerState {
                                 // println!("{:?}", schema);
                                 if self.temp_message.complete() {
                                     if schema.is_empty() {
-                                        self.internal_state.push(PasswordState::new(true).into());
+                                        return self.push_internal_state(PasswordState::confirm());
                                     } else if !schema.data.contains_key(&new_state.name) {
-                                        self.internal_state.push(PasswordState::default().into());
+                                        return self.push_internal_state(PasswordState::default());
                                     }
                                 } else {
                                     self.notice = Some("Fill all fields before submitting".into());
@@ -616,7 +581,7 @@ impl Application for ManagerState {
                                         self.temp_message = TempMessage::default();
                                         self.internal_state = vec![];
                                     } else {
-                                        self.internal_state.push(PasswordState::default().into());
+                                        return self.push_internal_state(PasswordState::default());
                                     }
                                 } else {
                                     self.notice = Some("Fill all fields before submitting".into());
@@ -694,13 +659,21 @@ impl Application for ManagerState {
             }
 
             GUIMessage::ShowPassword => {
-                if let Some(InternalState::Entry(entry_state)) = self.active_state_mut() {
-                    entry_state.hidden = false;
+                if let Some(state) = self.active_state_mut() {
+                    match state {
+                        InternalState::Entry(entry_state) => entry_state.hidden = false,
+                        InternalState::New(new_state) => new_state.hidden = false,
+                        _ => (),
+                    }
                 }
             }
             GUIMessage::HidePassword => {
-                if let Some(InternalState::Entry(entry_state)) = self.active_state_mut() {
-                    entry_state.hidden = true;
+                if let Some(state) = self.active_state_mut() {
+                    match state {
+                        InternalState::Entry(entry_state) => entry_state.hidden = true,
+                        InternalState::New(new_state) => new_state.hidden = true,
+                        _ => (),
+                    }
                 }
             }
             GUIMessage::CopyPassword => {
@@ -727,7 +700,7 @@ impl Application for ManagerState {
                 self.stored_clipboard = None;
                 return iced::clipboard::write(contents.expose_secret().into());
             }
-            GUIMessage::NewVault => self.internal_state.push(PromptState::default().into()),
+            GUIMessage::NewVault => return self.push_internal_state(PromptState::default()),
             GUIMessage::ChangeTheme(theme) => {
                 self.config.theme = theme.to_string();
                 if self.config.save().is_err() {

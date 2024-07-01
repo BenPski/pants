@@ -1,11 +1,11 @@
 use iced::{
-    widget::{button, column, container, pick_list, row, text, text_input},
+    widget::{button, column, container, pick_list, row, text, text_input, toggler},
     Element, Length,
 };
 use secrecy::ExposeSecret;
 
 use crate::{
-    gui::{gui_message::GUIMessage, widget::card::Card},
+    gui::{gui_message::GUIMessage, widget::card::Card, INPUT_ID},
     store::{StoreChoice, StoreHash},
 };
 
@@ -15,6 +15,7 @@ pub struct NewEntryState {
     pub name: String,
     pub choice: StoreChoice,
     pub value: StoreHash,
+    pub hidden: bool,
 }
 
 impl Default for NewEntryState {
@@ -24,6 +25,7 @@ impl Default for NewEntryState {
             name: String::new(),
             choice: StoreChoice::default(),
             value: StoreChoice::default().convert_default().as_hash(),
+            hidden: true,
         }
     }
 }
@@ -35,6 +37,7 @@ impl NewEntryState {
             name: String::new(),
             choice: StoreChoice::default(),
             value: StoreChoice::default().convert_default().as_hash(),
+            hidden: true,
         }
     }
     pub fn view(&self) -> Element<GUIMessage> {
@@ -42,7 +45,8 @@ impl NewEntryState {
         let name_prefix = text("Name:");
         let name_input = text_input("Name", &self.name)
             .on_input(GUIMessage::ChangeName)
-            .on_submit(GUIMessage::Submit);
+            .on_submit(GUIMessage::Submit)
+            .id(INPUT_ID.clone());
         let style_choice = pick_list(
             StoreChoice::all(),
             Some(self.choice),
@@ -57,10 +61,16 @@ impl NewEntryState {
                 )
                 .width(Length::Fill)
                 .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()))
-                .on_submit(GUIMessage::Submit);
+                .on_submit(GUIMessage::Submit)
+                .secure(self.hidden);
                 let password_generate = button("Generate").on_press(GUIMessage::GeneratePassword);
+                let toggle_show = if self.hidden {
+                    button("Show").on_press(GUIMessage::ShowPassword)
+                } else {
+                    button("Hide").on_press(GUIMessage::HidePassword)
+                };
 
-                container(row![prefix, password_input, password_generate])
+                container(row![prefix, password_input, password_generate, toggle_show])
             }
             StoreChoice::UsernamePassword => {
                 let username_prefix = text("Username:");
@@ -78,12 +88,23 @@ impl NewEntryState {
                 )
                 .width(Length::Fill)
                 .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()))
-                .on_submit(GUIMessage::Submit);
+                .on_submit(GUIMessage::Submit)
+                .secure(self.hidden);
 
                 let password_generate = button("Generate").on_press(GUIMessage::GeneratePassword);
+                let toggle_show = if self.hidden {
+                    button("Show").on_press(GUIMessage::ShowPassword)
+                } else {
+                    button("Hide").on_press(GUIMessage::HidePassword)
+                };
                 container(column![
                     row![username_prefix, username_input],
-                    row![password_prefix, password_input, password_generate]
+                    row![
+                        password_prefix,
+                        password_input,
+                        password_generate,
+                        toggle_show
+                    ]
                 ])
             }
         };

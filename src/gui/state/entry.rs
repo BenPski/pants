@@ -5,7 +5,7 @@ use iced::{
 use secrecy::ExposeSecret;
 
 use crate::{
-    gui::{gui_message::GUIMessage, widget::card::Card},
+    gui::{gui_message::GUIMessage, widget::card::Card, INPUT_ID},
     store::{Store, StoreChoice, StoreHash},
     Password,
 };
@@ -29,6 +29,7 @@ impl EntryState {
                     "Password",
                     self.value.get("password").unwrap().expose_secret(),
                 )
+                .id(INPUT_ID.clone())
                 .width(Length::Fill)
                 .on_input(|v| GUIMessage::UpdateField("password".to_string(), v.into()))
                 .secure(self.hidden);
