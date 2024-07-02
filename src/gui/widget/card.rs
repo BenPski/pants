@@ -1,11 +1,13 @@
+use boring_derive::Builder;
 use iced::{
     advanced::{layout::Node, overlay, renderer, widget::Tree, Widget},
-    Element, Length, Padding, Point, Size,
+    Element, Length, Padding, Pixels, Point, Size,
 };
 use iced_futures::core::event;
 
 use crate::gui::style::card::StyleSheet;
 
+#[derive(Builder)]
 pub struct Card<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     Theme: StyleSheet,
@@ -15,6 +17,7 @@ where
     max_width: f32,
     max_height: f32,
     padding: Padding,
+    #[builder(skip)]
     spacing: f32,
     clip: bool,
     style: Theme::Style,
@@ -43,43 +46,8 @@ where
         }
     }
 
-    pub fn height(mut self, value: impl Into<Length>) -> Self {
-        self.height = value.into();
-        self
-    }
-
-    pub fn width(mut self, value: impl Into<Length>) -> Self {
-        self.width = value.into();
-        self
-    }
-
-    pub fn max_height(mut self, value: impl Into<f32>) -> Self {
-        self.max_height = value.into();
-        self
-    }
-
-    pub fn max_width(mut self, value: impl Into<f32>) -> Self {
-        self.max_width = value.into();
-        self
-    }
-
-    pub fn style(mut self, value: impl Into<Theme::Style>) -> Self {
-        self.style = value.into();
-        self
-    }
-
-    pub fn clip(mut self, value: impl Into<bool>) -> Self {
-        self.clip = value.into();
-        self
-    }
-
-    pub fn padding(mut self, value: impl Into<Padding>) -> Self {
-        self.padding = value.into();
-        self
-    }
-
-    pub fn spacing(mut self, value: impl Into<f32>) -> Self {
-        self.spacing = value.into();
+    pub fn spacing(mut self, value: impl Into<Pixels>) -> Self {
+        self.spacing = value.into().0;
         self
     }
 }

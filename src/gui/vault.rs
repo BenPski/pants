@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use boring_derive::Builder;
 use iced::{
     alignment, theme,
     widget::{button, column, container, row, text, tooltip},
@@ -13,10 +14,11 @@ use super::{
     widget::expand::Expand,
 };
 
-#[derive(Default)]
+#[derive(Default, Builder)]
 pub struct Vault {
     pub name: String,
     pub entries: BTreeMap<String, Entry>,
+    #[builder(skip)]
     pub expanded: bool,
 }
 
@@ -39,16 +41,6 @@ impl Vault {
 
     pub fn toggle(&mut self) {
         self.expanded = !self.expanded;
-    }
-
-    pub fn name(mut self, value: impl Into<String>) -> Self {
-        self.name = value.into();
-        self
-    }
-
-    pub fn entries(mut self, value: impl Into<BTreeMap<String, Entry>>) -> Self {
-        self.entries = value.into();
-        self
     }
 
     pub fn update(&mut self, schema: &Schema) {
