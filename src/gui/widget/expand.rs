@@ -1,3 +1,4 @@
+use boring_derive::Builder;
 use iced::{
     advanced::{
         layout::{self, Node},
@@ -11,10 +12,12 @@ use iced_futures::core::event;
 
 use crate::gui::{style::expand::StyleSheet, with_padding};
 
+#[derive(Builder)]
 pub struct Expand<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     Theme: StyleSheet,
 {
+    #[builder(skip)]
     spacing: f32,
     padding: Padding,
     width: Length,
@@ -25,6 +28,7 @@ where
     expand: bool,
     style: Theme::Style,
     on_press: Option<Message>,
+    #[builder(skip)]
     elements: Vec<Element<'a, Message, Theme, Renderer>>,
 }
 
@@ -63,51 +67,6 @@ where
 
     pub fn spacing(mut self, value: impl Into<Pixels>) -> Self {
         self.spacing = value.into().0;
-        self
-    }
-
-    pub fn padding(mut self, value: impl Into<Padding>) -> Self {
-        self.padding = value.into();
-        self
-    }
-
-    pub fn width(mut self, value: impl Into<Length>) -> Self {
-        self.width = value.into();
-        self
-    }
-
-    pub fn height(mut self, value: impl Into<Length>) -> Self {
-        self.height = value.into();
-        self
-    }
-
-    pub fn max_width(mut self, value: impl Into<Pixels>) -> Self {
-        self.max_width = value.into().0;
-        self
-    }
-
-    pub fn align_items(mut self, value: impl Into<Alignment>) -> Self {
-        self.align_items = value.into();
-        self
-    }
-
-    pub fn clip(mut self, value: impl Into<bool>) -> Self {
-        self.clip = value.into();
-        self
-    }
-
-    pub fn expand(mut self, value: impl Into<bool>) -> Self {
-        self.expand = value.into();
-        self
-    }
-
-    pub fn style(mut self, value: impl Into<Theme::Style>) -> Self {
-        self.style = value.into();
-        self
-    }
-
-    pub fn on_press(mut self, value: impl Into<Message>) -> Self {
-        self.on_press = Some(value.into());
         self
     }
 
