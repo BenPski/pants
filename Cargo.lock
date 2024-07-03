@@ -2588,11 +2588,12 @@ dependencies = [
 
 [[package]]
 name = "pants-gen"
-version = "0.1.2"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c718a23f68c21a5b685bc9e095f2aa1f80aed0c5c31fc8ebf1a3d80df1396254"
+checksum = "6ec8e1f9c803dc6fa14c4823458d03e9505f64db28a1e339f448d84ed48e6430"
 dependencies = [
  "clap",
+ "once_cell",
  "rand",
  "thiserror",
 ]
