@@ -10,6 +10,7 @@ use secrecy::ExposeSecret;
 use crate::{
     config::{client_config::ClientConfig, internal_config::BaseConfig},
     errors::{ClientError, CommunicationError, SchemaError},
+    gui::run,
     info::Info,
     manager_message::ManagerMessage,
     message::Message,
@@ -97,6 +98,8 @@ pub enum CLICommands {
     }, // Transaction,
     /// generate password
     Gen(pants_gen::cli::CliArgs),
+    /// start the gui
+    Gui,
 }
 
 #[derive(Subcommand)]
@@ -140,6 +143,12 @@ impl CliApp {
 
     pub fn execute(self) {
         match self.args.command {
+            CLICommands::Gui => {
+                if let Err(err) = run() {
+                    println!("{}", err);
+                    exit(1);
+                }
+            }
             CLICommands::Gen(args) => {
                 if let Some(p) = args.execute() {
                     println!("{p}");
@@ -385,7 +394,7 @@ impl CliApp {
                     Ok(ManagerMessage::Info)
                 }
             }
-            CLICommands::Gen(_) => panic!("Should have branched before this"),
+            CLICommands::Gen(_) | CLICommands::Gui => panic!("Should have branched before this"),
         }
     }
 

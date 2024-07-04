@@ -1,9 +1,5 @@
-use iced::{Application, Font, Settings};
-use pants_store::gui::state::manager::ManagerState;
+use pants_store::gui::run;
 
 fn main() -> iced::Result {
-    ManagerState::run(Settings {
-        default_font: Font::MONOSPACE,
-        ..Default::default()
-    })
+    run()
 }
