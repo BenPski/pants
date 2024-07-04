@@ -1,5 +1,4 @@
-use iced::{Application, Font, Settings};
-use pants_store::gui::{run, state::manager::ManagerState};
+use pants_store::gui::{run};
 
 fn main() -> iced::Result {
     run()
