@@ -21,6 +21,10 @@ name = "pants"
 path = "src/gui/main.rs"
 name = "pants-gui"
 
+[[bin]]
+path = "src/gen/main.rs"
+name = "pants-gen"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -30,8 +34,10 @@ arboard = "3.4.0"
 argon2 = "0.5.3"
 async-std = "1.12.0"
 bincode = "1.3.3"
+boring-derive = "0.1.0"
 chrono = "0.4.38"
 clap = { version = "4.5.4", features = ["derive"] }
+clap_complete = "4.4.10"
 directories-next = "2.0.0"
 enum-iterator = "2.1.0"
 features = "0.10.0"
@@ -42,7 +48,7 @@ iced_aw = "0.9.3"
 iced_futures = "0.12.0"
 inquire = "0.7.5"
 once_cell = "1.19.0"
-pants-gen = "0.1.0"
+pants-gen = "0.2.2"
 rand = "0.8.5"
 secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "1.0.199", features = ["derive"] }

@@ -2,7 +2,8 @@ use core::panic;
 use std::{process::exit, str::FromStr, thread, time::Duration};
 
 use arboard::Clipboard;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap_complete::{generate, Shell};
 use inquire::Confirm;
 use pants_gen::password::PasswordSpec;
 use secrecy::ExposeSecret;
@@ -10,6 +11,7 @@ use secrecy::ExposeSecret;
 use crate::{
     config::{client_config::ClientConfig, internal_config::BaseConfig},
     errors::{ClientError, CommunicationError, SchemaError},
+    gui::run,
     info::Info,
     manager_message::ManagerMessage,
     message::Message,
@@ -97,6 +99,10 @@ pub enum CLICommands {
     }, // Transaction,
     /// generate password
     Gen(pants_gen::cli::CliArgs),
+    /// start the gui
+    Gui,
+    /// generate completion file
+    Completion { shell: Shell },
 }
 
 #[derive(Subcommand)]
@@ -140,12 +146,26 @@ impl CliApp {
 
     pub fn execute(self) {
         match self.args.command {
+            CLICommands::Gui => {
+                if let Err(err) = run() {
+                    println!("{}", err);
+                    exit(1);
+                }
+            }
             CLICommands::Gen(args) => {
                 if let Some(p) = args.execute() {
                     println!("{p}");
                 } else {
                     println!("Could not satisfy password spec constraints");
                 }
+            }
+            CLICommands::Completion { shell } => {
+                generate(
+                    shell,
+                    &mut CliArgs::command(),
+                    "pants",
+                    &mut std::io::stdout(),
+                );
             }
             ref command => {
                 match Self::process(&self.config, &self.args.output, self.interface, command) {
@@ -385,7 +405,7 @@ impl CliApp {
                     Ok(ManagerMessage::Info)
                 }
             }
-            CLICommands::Gen(_) => panic!("Should have branched before this"),
+            _ => panic!("Should have branched before this"),
         }
     }
 

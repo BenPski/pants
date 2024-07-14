@@ -1,3 +1,4 @@
+use boring_derive::From;
 use std::{collections::BTreeMap, str::FromStr};
 
 use crate::{
@@ -294,7 +295,7 @@ impl ManagerState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, From)]
 enum InternalState {
     Password(PasswordState),
     Entry(EntryState),
@@ -302,36 +303,6 @@ enum InternalState {
     Prompt(PromptState),
     // NewVault(NewVaultState),
 }
-
-impl From<PasswordState> for InternalState {
-    fn from(value: PasswordState) -> Self {
-        InternalState::Password(value)
-    }
-}
-
-impl From<EntryState> for InternalState {
-    fn from(value: EntryState) -> Self {
-        InternalState::Entry(value)
-    }
-}
-
-impl From<NewEntryState> for InternalState {
-    fn from(value: NewEntryState) -> Self {
-        InternalState::New(value)
-    }
-}
-
-impl From<PromptState> for InternalState {
-    fn from(value: PromptState) -> Self {
-        InternalState::Prompt(value)
-    }
-}
-
-// impl From<NewVaultState> for InternalState {
-//     fn from(value: NewVaultState) -> Self {
-//         InternalState::NewVault(value)
-//     }
-// }
 
 fn delayed_command(
     time: u64,
@@ -483,12 +454,11 @@ impl Application for ManagerState {
             GUIMessage::SelectStyle(choice) => {
                 if let Some(InternalState::New(new_state)) = self.active_state_mut() {
                     new_state.choice = choice;
-                    new_state.value = choice.convert_default().as_hash();
+                    // new_state.value = choice.convert_default().as_hash();
                 }
-                if let TempMessage::New(_, _, ref mut style, ref mut value) = &mut self.temp_message
-                {
+                if let TempMessage::New(_, _, ref mut style, _) = &mut self.temp_message {
                     *style = choice;
-                    *value = choice.convert_default().as_hash();
+                    // *value = choice.convert_default().as_hash();
                 }
             }
             GUIMessage::UpdateField(k, v) => {
