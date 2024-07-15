@@ -1,9 +1,13 @@
-//! A password manager, as of right now it is command line only
+//! A password manager can use the CLI or the GUI.
 //!
-//! The interface works by allowing you to encrypt your data with a master password as most
+//! The interface works by allowing you to encrypt your data with a master password as most (all?)
 //! password managers do.
 //!
-//! On the first creatiion of a vault it will prompt you for a master password to use. If there is
+//! Pants allows you to create multiple vaults each with a different master password. Pants
+//! attempts to keep your master password in memory for as little time as possible, the result is
+//! that you'll be prompted to enter your password whenever a transaction with the vault requires
+//! encrypting or decrypting data (aka it doesn't cache your password the first time you open the
+//! program or individual vault). This is only noticeable in the GUI. If there is
 //! a need to rotate the master password the `rotate` command is provided, updating the vaults
 //! password to the new master password and creating a backup of the old vault if you need to
 //! restore the previous password.
@@ -12,51 +16,30 @@
 //! seconds and then attempt to restore the previous contents of your clipboard to prevent
 //! unintentional pastes of the password.
 //!
+//! If you need to change the default behavior like the clipboard time or the default password
+//! specification, check the `pants/*_client.toml` located in the standard config directory for
+//! your OS (e.g. ~/.local/share/ on linux)
 //!
 //! # Examples
 //!
-//! The basic interface operates around `new`, `get`, `update`, and `delete`.
+//! The basic interface operates around `new`, `add`, `get`, `update`, and `delete`.
 //!
 //! ## New
 //!
+//! Creating a new vault
+//! ```bash
+//! $ pants new test
+//! ```
+//!
+//! ## Add
+//!
 //! Creating a new `password` or `username-password` combo.
 //! ```bash
-//! $ pants new password test
+//! # pants add test password example
 //! > Generate password? Yes
-//! > Length of password? 32
-//! > Use uppercase letters? Yes
-//! > Use lowercase letters? Yes
-//! > Use numbers? Yes
-//! > Use symbols? Yes
-//! > Vault password:  ********
-//! test
-//!   password: <Copied to clipboard>
-//! Resetting clipboard
-//! ```
-//!
-//! ```bash
-//! $ pants new username-password check
-//! > Username: me
-//! > Generate password? No
-//! > Password:  ********
-//! > Vault password:  ********
-//! check
-//!   username: me
-//!   password: <Copied to clipboard>
-//! Resetting clipboard
-//! ```
-//!
-//! ```bash
-//! $ pants new password removing
-//! > Generate password? Yes
-//! > Length of password? 32
-//! > Use uppercase letters? Yes
-//! > Use lowercase letters? Yes
-//! > Use numbers? Yes
-//! > Use symbols? Yes
-//! > Vault password:  ********
-//! removing
-//!   password: <Copied to clipboard>
+//! > Vault password: ********
+//! example
+//!  password: <Copied to clipboard>
 //! Resetting clipboard
 //! ```
 //!
@@ -64,8 +47,8 @@
 //!
 //! Retrieve an existing entry
 //! ```bash
-//! $ pants get test
-//! > Vault password:  ********
+//!$ pants get test test
+//! > Vault password: ********
 //! test
 //!   password: <Copied to clipboard>
 //! Resetting clipboard
@@ -75,28 +58,24 @@
 //!
 //! Update an existing entry.
 //! ```bash
-//! $ pants update check
-//! > Username: mine
+//! $ pants update test test
 //! > Generate password? Yes
-//! > Length of password? 32
-//! > Use uppercase letters? Yes
-//! > Use lowercase letters? Yes
-//! > Use numbers? Yes
-//! > Use symbols? Yes
-//! > Vault password:  ********
-//! check
-//!   username: mine
+//! > Vault password: ********
+//! test
 //!   password: <Copied to clipboard>
 //! Resetting clipboard
 //! ```
 //!
 //! ## Delete
 //!
+//! Remove a vault
+//! $ pants delete example
+//! > Are you sure you want to delete the whole vault? Yes
+//!
 //! Remove an entry
 //! ```bash
-//! $ pants delete removing
-//! > Vault password:  ********
-//! Nothing read from vault
+//! $ pants delete test example
+//! > Vault password: ********
 //! ```
 //!
 //! ## List
@@ -104,9 +83,12 @@
 //! For convenience you can list the existing entries and their type with `list`.
 //! ```bash
 //! $ pants list
-//! Available entries:
-//! - check: username-password
-//! - test: password//! $ pants list
+//! something: no entries
+//! test:
+//!   blah: password
+//!   other: password
+//!   something: password
+//!   test: password
 //! ```
 //!
 //! # Other commands

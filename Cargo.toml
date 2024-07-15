@@ -40,7 +40,7 @@ boring-derive = "0.1.0"
 secrecy = { version = "0.8.0", features = ["serde"] }
 figment = { version = "0.10.19", features = ["toml", "env"] }
 serde = { version = "1.0.199", features = ["derive"] }
-pants-gen = "0.2.2"
+pants-gen = "0.3.0"
 once_cell = "1.19.0"
 
 [dependencies]
