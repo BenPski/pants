@@ -3,6 +3,10 @@ name = "pants-cli"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "pants"
+path = "src/main.rs"
+
 [dependencies]
 anyhow.workspace = true
 arboard = "3.4.0"
