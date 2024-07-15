@@ -1,7 +1,7 @@
 use iced::Theme;
 use secrecy::Secret;
 
-use crate::{store::StoreChoice, Password};
+use pants_store::{store::StoreChoice, Password};
 
 use super::{connection, vault::VaultMessage};
 

@@ -117,13 +117,10 @@
 
 use secrecy::Secret;
 pub mod action;
-pub mod cli;
 pub mod command;
 pub mod config;
 pub mod errors;
 pub mod file;
-pub mod gen;
-pub mod gui;
 pub mod info;
 pub mod manager_message;
 pub mod message;

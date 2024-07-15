@@ -1,8 +1,27 @@
 [package]
 name = "pants-store"
+description = "A password manager"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+exclude.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+
+[workspace]
+members = [
+	"cli",
+	"gui",
+]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
-description = "A password manager"
 authors = ["Ben Pawlowski ben@pepski.com"]
 license = "MIT"
 repository = "https://github.com/BenPski/pants"
@@ -11,49 +30,33 @@ exclude = [".github", "scripts"]
 rust-version = "1.70.0"
 keywords = ["passwords"]
 categories = ["command-line-utilities", "cryptography"]
-default-run = "pants"
-
-[[bin]]
-path = "src/main.rs"
-name = "pants"
-
-[[bin]]
-path = "src/gui/main.rs"
-name = "pants-gui"
-
-[[bin]]
-path = "src/gen/main.rs"
-name = "pants-gen"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace.dependencies]
+pants-store = { path = "." }
+anyhow = "1.0.86"
+boring-derive = "0.1.0"
+secrecy = { version = "0.8.0", features = ["serde"] }
+figment = { version = "0.10.19", features = ["toml", "env"] }
+serde = { version = "1.0.199", features = ["derive"] }
+pants-gen = "0.2.2"
+once_cell = "1.19.0"
+
 [dependencies]
 aes-gcm = "0.10.3"
-anyhow = "1.0.86"
-arboard = "3.4.0"
 argon2 = "0.5.3"
-async-std = "1.12.0"
-bincode = "1.3.3"
-boring-derive = "0.1.0"
-chrono = "0.4.38"
-clap = { version = "4.5.4", features = ["derive"] }
-clap_complete = "4.4.10"
-directories-next = "2.0.0"
-enum-iterator = "2.1.0"
-features = "0.10.0"
-figment = { version = "0.10.19", features = ["toml", "env"] }
-glob = "0.3.1"
-iced = "0.12.1"
-iced_aw = "0.9.3"
-iced_futures = "0.12.0"
-inquire = "0.7.5"
-once_cell = "1.19.0"
-pants-gen = "0.2.2"
 rand = "0.8.5"
+anyhow.workspace = true
+serde = { version = "1.0.204", features = ["derive"] }
+thiserror = "1.0.62"
+chrono = "0.4.38"
+glob = "0.3.1"
+serde_json = "1.0.120"
 secrecy = { version = "0.8.0", features = ["serde"] }
-serde = { version = "1.0.199", features = ["derive"] }
-serde_json = "1.0.117"
-thiserror = "1.0.61"
+boring-derive = "0.1.1"
+bincode = "1.3.3"
+enum-iterator = "2.1.0"
+directories-next = "2.0.0"
+figment = { version = "0.10.19", features = ["toml", "env"] }
 toml = "0.8.14"
-uuid = { version = "1.8.0", features = ["v4"] }
-zeroize = { version = "1.7.0", features = ["derive"] }

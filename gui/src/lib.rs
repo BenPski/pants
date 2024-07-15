@@ -6,6 +6,7 @@ use once_cell::sync::Lazy;
 use shortcut::Shortcut;
 use state::manager::ManagerState;
 
+pub mod client_config;
 pub mod connection;
 pub mod entry;
 pub mod gui_message;
@@ -13,6 +14,7 @@ pub mod shortcut;
 pub mod state;
 pub mod style;
 pub mod temp_message;
+pub mod utils;
 pub mod vault;
 pub mod widget;
 

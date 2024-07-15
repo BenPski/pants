@@ -4,10 +4,9 @@ use iced::{
 };
 use secrecy::ExposeSecret;
 
-use crate::{
-    gui::{gui_message::GUIMessage, widget::card::Card, INPUT_ID},
-    store::{StoreChoice, StoreHash},
-};
+use pants_store::store::{StoreChoice, StoreHash};
+
+use crate::{gui_message::GUIMessage, widget::card::Card, INPUT_ID};
 
 #[derive(Debug, Clone)]
 pub struct NewEntryState {

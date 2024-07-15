@@ -3,7 +3,7 @@ use iced::{
     subscription::{self, Subscription},
 };
 
-use crate::{manager_message::ManagerMessage, output::Output, vault::manager::VaultManager};
+use pants_store::{manager_message::ManagerMessage, output::Output, vault::manager::VaultManager};
 #[derive(Debug, Clone)]
 pub enum Event {
     Connected(Connection),

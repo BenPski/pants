@@ -4,10 +4,9 @@ use iced::{
 };
 use secrecy::ExposeSecret;
 
-use crate::{
-    gui::{gui_message::GUIMessage, widget::card::Card, INPUT_ID},
-    Password,
-};
+use pants_store::Password;
+
+use crate::{gui_message::GUIMessage, widget::card::Card, INPUT_ID};
 
 #[derive(Debug, Clone)]
 pub struct PasswordState {

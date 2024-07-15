@@ -4,11 +4,12 @@ use iced::{
 };
 use secrecy::ExposeSecret;
 
-use crate::{
-    gui::{gui_message::GUIMessage, widget::card::Card, INPUT_ID},
+use pants_store::{
     store::{Store, StoreChoice, StoreHash},
     Password,
 };
+
+use crate::{gui_message::GUIMessage, widget::card::Card, INPUT_ID};
 
 #[derive(Debug, Clone)]
 pub struct EntryState {

@@ -10,7 +10,7 @@ use iced::{
 };
 use iced_futures::core::event;
 
-use crate::gui::{style::expand::StyleSheet, with_padding};
+use crate::{style::expand::StyleSheet, with_padding};
 
 #[derive(Builder)]
 pub struct Expand<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>

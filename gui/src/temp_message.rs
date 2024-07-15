@@ -4,7 +4,7 @@ use iced::{
 };
 use secrecy::ExposeSecret;
 
-use crate::{
+use pants_store::{
     manager_message::ManagerMessage,
     message::Message,
     store::{StoreChoice, StoreHash},
