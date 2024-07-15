@@ -8,10 +8,9 @@ use inquire::Confirm;
 use pants_gen::password::PasswordSpec;
 use secrecy::ExposeSecret;
 
-use crate::{
-    config::{client_config::ClientConfig, internal_config::BaseConfig},
+use pants_store::{
+    config::internal_config::BaseConfig,
     errors::{ClientError, CommunicationError, SchemaError},
-    gui::run,
     info::Info,
     manager_message::ManagerMessage,
     message::Message,
@@ -21,6 +20,8 @@ use crate::{
     vault::manager::VaultManager,
     Password,
 };
+
+use crate::client_config::ClientConfig;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum OutputStyle {
@@ -99,8 +100,6 @@ pub enum CLICommands {
     }, // Transaction,
     /// generate password
     Gen(pants_gen::cli::CliArgs),
-    /// start the gui
-    Gui,
     /// generate completion file
     Completion { shell: Shell },
 }
@@ -146,12 +145,6 @@ impl CliApp {
 
     pub fn execute(self) {
         match self.args.command {
-            CLICommands::Gui => {
-                if let Err(err) = run() {
-                    println!("{}", err);
-                    exit(1);
-                }
-            }
             CLICommands::Gen(args) => {
                 if let Some(p) = args.execute() {
                     println!("{p}");

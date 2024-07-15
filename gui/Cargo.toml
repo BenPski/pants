@@ -1,0 +1,17 @@
+[package]
+name = "pants-gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+iced = "0.12.1"
+boring-derive.workspace = true
+secrecy.workspace = true
+iced_futures = "0.12.0"
+iced_aw = "0.9.3"
+figment.workspace = true
+serde.workspace = true
+pants-gen.workspace = true
+async-std = "1.12.0"
+once_cell.workspace = true
+pants-store.workspace = true

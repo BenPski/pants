@@ -4,9 +4,8 @@ use figment::{
 };
 use iced::Theme;
 use pants_gen::password::PasswordSpec;
+use pants_store::config::internal_config::{BaseConfig, InternalConfig};
 use serde::{Deserialize, Serialize};
-
-use super::internal_config::{BaseConfig, InternalConfig};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientConfig {
@@ -28,7 +27,7 @@ impl Default for ClientConfig {
 
 impl<'de> InternalConfig<'de> for ClientConfig {
     fn name() -> String {
-        "client.toml".to_string()
+        "gui_client.toml".to_string()
     }
 }
 

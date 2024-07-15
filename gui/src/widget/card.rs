@@ -5,7 +5,7 @@ use iced::{
 };
 use iced_futures::core::event;
 
-use crate::gui::style::card::StyleSheet;
+use crate::style::card::StyleSheet;
 
 #[derive(Builder)]
 pub struct Card<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>

@@ -1,26 +1,16 @@
 use boring_derive::From;
 use std::{collections::BTreeMap, str::FromStr};
 
+use super::prompt::PromptState;
 use crate::{
-    config::{
-        client_config::ClientConfig,
-        internal_config::{BaseConfig, InternalConfig},
-    },
-    gui::{
-        connection,
-        entry::EntryMessage,
-        gui_message::GUIMessage,
-        state::{entry::EntryState, new_entry::NewEntryState, password::PasswordState},
-        temp_message::TempMessage,
-        vault::{Vault, VaultMessage},
-        INPUT_ID, SHORTCUTS, THEMES,
-    },
-    info::Info,
-    manager_message::ManagerMessage,
-    output::Output,
-    reads::Reads,
-    store::{Store, StoreChoice},
-    Password,
+    client_config::ClientConfig,
+    connection,
+    entry::EntryMessage,
+    gui_message::GUIMessage,
+    state::{entry::EntryState, new_entry::NewEntryState, password::PasswordState},
+    temp_message::TempMessage,
+    vault::{Vault, VaultMessage},
+    INPUT_ID, SHORTCUTS, THEMES,
 };
 use iced::{
     alignment, keyboard, theme,
@@ -35,9 +25,16 @@ use iced_aw::{
 };
 use iced_futures::MaybeSend;
 use pants_gen::password::PasswordSpec;
+use pants_store::{
+    config::internal_config::{BaseConfig, InternalConfig},
+    info::Info,
+    manager_message::ManagerMessage,
+    output::Output,
+    reads::Reads,
+    store::{Store, StoreChoice},
+    Password,
+};
 use secrecy::{ExposeSecret, Secret};
-
-use super::prompt::PromptState;
 
 pub struct ManagerState {
     config: ClientConfig,

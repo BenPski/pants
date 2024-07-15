@@ -6,8 +6,7 @@ use iced::{
     widget::{button, column, container, row, text, tooltip},
     Element, Length,
 };
-
-use crate::schema::Schema;
+use pants_store::schema::Schema;
 
 use super::{
     entry::{Entry, EntryMessage},

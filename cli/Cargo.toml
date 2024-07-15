@@ -1,0 +1,21 @@
+[package]
+name = "pants-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "pants"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+arboard = "3.4.0"
+clap = { version = "4.5.9", features = ["derive"] }
+clap_complete = "4.5.8"
+figment.workspace = true
+inquire = "0.7.5"
+once_cell.workspace = true
+pants-gen.workspace = true
+pants-store.workspace = true
+secrecy.workspace = true
+serde.workspace = true
