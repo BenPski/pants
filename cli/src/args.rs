@@ -21,7 +21,7 @@ use pants_store::{
     Password,
 };
 
-use crate::client_config::ClientConfig;
+use crate::{client_config::ClientConfig, gen_args};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum OutputStyle {
@@ -99,7 +99,7 @@ pub enum CLICommands {
         vault: String,
     }, // Transaction,
     /// generate password
-    Gen(pants_gen::cli::CliArgs),
+    Gen(gen_args::CliArgs),
     /// generate completion file
     Completion { shell: Shell },
 }

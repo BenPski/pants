@@ -1,9 +1,6 @@
 use clap::Parser;
 use once_cell::sync::Lazy;
-use pants_gen::{
-    interval::Interval,
-    password::{Choice, PasswordSpec},
-};
+use pants_gen::{choice::Choice, interval::Interval, password::PasswordSpec};
 
 static DEFAULT_SPEC: Lazy<String> = Lazy::new(|| PasswordSpec::default().to_string());
 
