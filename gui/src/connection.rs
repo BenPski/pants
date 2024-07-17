@@ -1,6 +1,6 @@
 use iced::{
-    futures::{channel::mpsc, SinkExt},
-    subscription::{self, Subscription},
+    futures::{channel::mpsc, SinkExt, Stream},
+    Subscription,
 };
 
 use pants_store::{manager_message::ManagerMessage, output::Output, vault::manager::VaultManager};
@@ -10,25 +10,11 @@ pub enum Event {
     Disconnected,
     ReceiveOutput(Output),
     ReceiveError(String),
-    // ReceiveSchema(Schema),
-    // ReceiveRead(Reads<Store>),
-    // ReceiveList(Vec<String>),
-    // ReceiveBackup(BackupFile),
-    // ReceiveBackupFiles(Vec<BackupFile>),
-    // ReceiveNothing,
 }
 
 impl From<Output> for Event {
     fn from(value: Output) -> Self {
         Self::ReceiveOutput(value)
-        // match value {
-        //     Output::Schema(s) => Self::ReceiveSchema(s),
-        //     Output::Read(r) => Self::ReceiveRead(r),
-        //     Output::List(l) => Self::ReceiveList(l),
-        //     Output::Backup(b) => Self::ReceiveBackup(b),
-        //     Output::BackupFiles(f) => Self::ReceiveBackupFiles(f),
-        //     Output::Nothing => Self::ReceiveNothing,
-        // }
     }
 }
 
@@ -48,44 +34,40 @@ impl Connection {
             .expect("Send message to echo server");
     }
 }
-pub fn connect() -> Subscription<Event> {
+pub fn connect() -> impl Stream<Item = Event> {
     struct Connect;
     let mut interface = VaultManager::default();
-    subscription::channel(
-        std::any::TypeId::of::<Connect>(),
-        100,
-        |mut output| async move {
-            let mut state = State::Starting;
+    iced::stream::channel(100, |mut output| async move {
+        let mut state = State::Starting;
 
-            loop {
-                match &mut state {
-                    State::Starting => {
-                        let (sender, receiver) = mpsc::channel(100);
+        loop {
+            match &mut state {
+                State::Starting => {
+                    let (sender, receiver) = mpsc::channel(100);
 
-                        let _ = output.send(Event::Connected(Connection(sender))).await;
-                        state = State::Connected(receiver);
-                    }
-                    State::Connected(receiver) => {
-                        use iced_futures::futures::StreamExt;
+                    let _ = output.send(Event::Connected(Connection(sender))).await;
+                    state = State::Connected(receiver);
+                }
+                State::Connected(receiver) => {
+                    use iced::futures::StreamExt;
 
-                        let input = receiver.select_next_some().await;
+                    let input = receiver.select_next_some().await;
 
-                        let response = interface.receive(input);
+                    let response = interface.receive(input);
 
-                        match response {
-                            Ok(vault_output) => {
-                                let event = vault_output.into();
-                                let _ = output.send(event).await;
-                            }
-                            // TODO: actually pass along errors so they can be reacted to and
-                            // reported
-                            Err(e) => {
-                                let _ = output.send(Event::ReceiveError(e.to_string())).await;
-                            }
+                    match response {
+                        Ok(vault_output) => {
+                            let event = vault_output.into();
+                            let _ = output.send(event).await;
+                        }
+                        // TODO: actually pass along errors so they can be reacted to and
+                        // reported
+                        Err(e) => {
+                            let _ = output.send(Event::ReceiveError(e.to_string())).await;
                         }
                     }
                 }
             }
-        },
-    )
+        }
+    })
 }

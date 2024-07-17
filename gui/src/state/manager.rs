@@ -13,17 +13,15 @@ use crate::{
     INPUT_ID, SHORTCUTS, THEMES,
 };
 use iced::{
-    alignment, keyboard, theme,
-    widget::{self, button, column, container, row, scrollable, text, text_input},
-    window, Application, Border, Command, Element, Length, Subscription, Theme,
+    alignment, clipboard, keyboard, widget::{self, button, column, container, row, scrollable, stack, text, text_input, tooltip},
+    window, Border, Element, Length, Task, Theme,
 };
 use iced_aw::{
-    floating_element,
-    menu::{self, Item, Menu, StyleSheet},
-    menu_bar, menu_items, modal,
-    style::MenuBarStyle,
+    menu::{self, primary, Item, Menu, },
+    menu_bar, menu_items, 
+    
 };
-use iced_futures::MaybeSend;
+
 use pants_gen::password::PasswordSpec;
 use pants_store::{
     config::internal_config::{BaseConfig, InternalConfig},
@@ -77,7 +75,7 @@ impl ManagerState {
         }
         None
     }
-    fn handle_password_submit(&mut self, password: Password) -> Command<GUIMessage> {
+    fn handle_password_submit(&mut self, password: Password) -> Task<GUIMessage> {
         let (command, messages) = match &self.temp_message {
             TempMessage::Get(vault, key) => {
                 let message = self.temp_message.with_password(password);
@@ -101,37 +99,37 @@ impl ManagerState {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                (Command::none(), vec![message, ManagerMessage::Info])
+                (Task::none(), vec![message, ManagerMessage::Info])
             }
             TempMessage::New(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                (Command::none(), vec![message, ManagerMessage::Info])
+                (Task::none(), vec![message, ManagerMessage::Info])
             }
             TempMessage::Update(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                (Command::none(), vec![message, ManagerMessage::Info])
+                (Task::none(), vec![message, ManagerMessage::Info])
             }
             TempMessage::Empty => {
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                (Command::none(), vec![])
+                (Task::none(), vec![])
             }
             TempMessage::DeleteVault(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                (Command::none(), vec![message, ManagerMessage::Info])
+                (Task::none(), vec![message, ManagerMessage::Info])
             }
             // non-sense
             TempMessage::DeleteEmptyVault(..) => {
                 let message = self.temp_message.with_password(password);
                 self.internal_state = vec![];
                 self.temp_message = TempMessage::default();
-                (Command::none(), vec![message, ManagerMessage::Info])
+                (Task::none(), vec![message, ManagerMessage::Info])
             }
         };
         self.send_message(messages);
@@ -147,7 +145,7 @@ impl ManagerState {
     fn needs_password(&self) -> bool {
         self.temp_message.needs_password()
     }
-    fn update(&mut self, info: Info) {
+    fn update_info(&mut self, info: Info) {
         let mut vaults = BTreeMap::new();
         for (name, schema) in info.data.iter() {
             let mut vault = Vault::new(name.into(), BTreeMap::new());
@@ -200,12 +198,12 @@ impl ManagerState {
         THEMES.get(&self.config.theme).cloned().unwrap_or_default()
     }
 
-    fn push_internal_state(&mut self, state: impl Into<InternalState>) -> Command<GUIMessage> {
+    fn push_internal_state(&mut self, state: impl Into<InternalState>) -> Task<GUIMessage> {
         self.internal_state.push(state.into());
         text_input::focus(INPUT_ID.clone())
     }
 
-    fn view(&self) -> Element<GUIMessage> {
+    fn view_all(&self) -> Element<GUIMessage> {
         let top_layer = self.internal_state.last().map(|state| state.view());
 
         let menu = |items| Menu::new(items).max_width(180.0).offset(0.0).spacing(0.0);
@@ -234,12 +232,13 @@ impl ManagerState {
             )
         )
         .draw_path(menu::DrawPath::Backdrop)
-        .style(|theme:&iced::Theme| menu::Appearance{
+            
+        .style(|theme:&iced::Theme, status: iced_aw::style::Status| menu::Style{
             // path_border: Border{
             //     radius: [6.0; 4].into(),
             //     ..Default::default()
             // },
-            ..theme.appearance(&MenuBarStyle::Default)
+                ..primary(theme, status)
         });
 
         // let new_vault = button("New Vault").on_press(GUIMessage::NewVault);
@@ -257,9 +256,14 @@ impl ManagerState {
 
         // let info = self.temp_message.view();
         let primary = container(column![menu, content]);
-        let main = modal(primary, top_layer)
-            .backdrop(GUIMessage::Exit)
-            .on_esc(GUIMessage::Exit)
+        
+        let main = container(if let Some(top_layer) = top_layer {
+            stack(vec![primary.into(), top_layer])
+        } else {
+                stack(vec![primary.into()])
+            })
+            // .backdrop(GUIMessage::Exit)
+            // .on_esc(GUIMessage::Exit)
             .align_y(alignment::Vertical::Center);
         if let Some(t) = &self.notice {
             let popup = button(
@@ -269,7 +273,7 @@ impl ManagerState {
                     .padding(5)
                     .style(|theme: &Theme| {
                         let palette = theme.extended_palette();
-                        container::Appearance {
+                        container::Style {
                             border: Border {
                                 color: palette.background.weak.color,
                                 width: 4.0,
@@ -280,12 +284,13 @@ impl ManagerState {
                         }
                     }),
             )
-            .style(theme::Button::Text)
+            .style(button::text)
             .on_press(GUIMessage::ClosePopup);
-            floating_element(main, popup)
-                .anchor(floating_element::Anchor::NorthEast)
-                .hide(false)
-                .into()
+            tooltip(main, popup, tooltip::Position::Bottom).into()
+            // floating_element(main, popup)
+            //     .anchor(floating_element::Anchor::NorthEast)
+            //     .hide(false)
+            //     .into()
         } else {
             main.into()
         }
@@ -301,11 +306,11 @@ enum InternalState {
     // NewVault(NewVaultState),
 }
 
-fn delayed_command(
+fn delayed_task(
     time: u64,
-    callback: impl FnOnce(()) -> GUIMessage + 'static + MaybeSend,
-) -> Command<GUIMessage> {
-    Command::perform(
+    callback: impl Fn(()) -> GUIMessage + 'static + Send,
+) -> Task<GUIMessage> {
+    Task::perform(
         async move {
             let _ = async_std::task::sleep(std::time::Duration::from_secs(time)).await;
         },
@@ -313,8 +318,20 @@ fn delayed_command(
     )
 }
 
-fn close_popup() -> Command<GUIMessage> {
-    delayed_command(5, |_| GUIMessage::ClosePopup)
+// fn delayed_command(
+//     time: u64,
+//     callback: impl FnOnce(()) -> GUIMessage + 'static + MaybeSend,
+// ) -> Command<GUIMessage> {
+//     Command::perform(
+//         async move {
+//             let _ = async_std::task::sleep(std::time::Duration::from_secs(time)).await;
+//         },
+//         callback,
+//     )
+// }
+
+fn close_popup() -> Task<GUIMessage> {
+    delayed_task(5, |_| GUIMessage::ClosePopup)
 }
 
 impl InternalState {
@@ -329,21 +346,12 @@ impl InternalState {
     }
 }
 
-impl Application for ManagerState {
-    type Flags = ();
-    type Theme = Theme;
-    type Message = GUIMessage;
-    type Executor = iced::executor::Default;
-
-    fn title(&self) -> String {
+impl ManagerState {
+    pub fn title(&self) -> String {
         "Pants".to_string()
     }
 
-    fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
-        (Self::default(), Command::none())
-    }
-
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+    pub fn update(&mut self, message: GUIMessage) -> Task<GUIMessage> {
         match message {
             GUIMessage::Event(event) => match event {
                 connection::Event::Connected(connection) => {
@@ -356,7 +364,7 @@ impl Application for ManagerState {
                 connection::Event::ReceiveOutput(output) => match output {
                     Output::Info(info) => {
                         // println!("Received info: {:?}", info);
-                        self.update(info);
+                        self.update_info(info);
                     }
                     Output::Read(value) => {
                         // println!("Received read: {:?}", value);
@@ -401,8 +409,8 @@ impl Application for ManagerState {
                         StoreChoice::default().convert_default().as_hash(),
                     );
                     let command = self.push_internal_state(NewEntryState::for_vault(vault));
-                    let gen_password = delayed_command(0, |_| GUIMessage::GeneratePassword);
-                    return Command::batch(vec![command, gen_password]);
+                    let gen_password = delayed_task(0, |_| GUIMessage::GeneratePassword);
+                    return Task::batch(vec![command, gen_password]);
                 }
                 VaultMessage::Delete => {
                     if self.info.get(&vault).unwrap().is_empty() {
@@ -641,12 +649,12 @@ impl Application for ManagerState {
             GUIMessage::CopyPassword => {
                 if let Some(InternalState::Entry(entry_state)) = self.active_state_mut() {
                     if let Some(p) = entry_state.get_password() {
-                        return Command::batch(vec![
-                            iced::clipboard::read(|s| {
-                                GUIMessage::CopyClipboard(s.map(|x| x.into()))
+                        return Task::batch(vec![
+                            clipboard::read().and_then(|s| {
+                                Task::done(GUIMessage::CopyClipboard(Some(s.into())))
                             }),
-                            iced::clipboard::write(p.expose_secret().into()),
-                            delayed_command(self.config.clipboard_time, |_| {
+                            clipboard::write(p.expose_secret().into()),
+                            delayed_task(self.config.clipboard_time, |_| {
                                 GUIMessage::ClearClipboard
                             }),
                         ]);
@@ -677,80 +685,465 @@ impl Application for ManagerState {
                     widget::focus_next()
                 }
             }
-            GUIMessage::Close => return window::close(window::Id::MAIN),
+            GUIMessage::Close => return window::get_latest().and_then(window::close),
             GUIMessage::Nothing => {}
         }
-
-        Command::none()
+        Task::none()
     }
 
-    fn view(&self) -> Element<Self::Message> {
-        self.view()
+    pub fn view(&self) -> Element<GUIMessage> {
+        self.view_all()
     }
 
-    fn subscription(&self) -> Subscription<Self::Message> {
-        let connection_subscriber = connection::connect().map(GUIMessage::Event);
+    pub fn subscription(&self) -> iced::Subscription<GUIMessage> {
+        let connection_subscriber = iced::Subscription::run(connection::connect).map(GUIMessage::Event);
 
-        let keyboard_subscriber = keyboard::on_key_press(|key, modifiers| {
-            for (_, shortcut) in SHORTCUTS.iter() {
+        // let keyboard_subscriber = keyboard::on_key_press(|key, modifiers| {
+        //     for (_, shortcut) in SHORTCUTS.iter() {
+        //         let res = shortcut.check(&key, &modifiers);
+        //         if res.is_some() {
+        //             return res;
+        //         }
+        //     }
+        //     None
+        // });
+
+        fn handle_shortcuts(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<GUIMessage> {
+for (_, shortcut) in SHORTCUTS.iter() {
                 let res = shortcut.check(&key, &modifiers);
                 if res.is_some() {
                     return res;
                 }
             }
             None
-        });
+        }
 
-        // let keyboard_subscriber = keyboard::on_key_press(|key, modifiers| {
-        //     // println!("{:?}, {:?}", key, modifiers);
-        //     println!("{:?}", keyboard::Modifiers::COMMAND);
-        //     match (key.as_ref(), modifiers) {
-        //         (key::Key::Character("n"), keyboard::Modifiers::COMMAND) => {
-        //             Some(GUIMessage::NewVault)
-        //         }
-        //         (key::Key::Character("q"), keyboard::Modifiers::COMMAND) => Some(GUIMessage::Close),
-        //         (key::Key::Named(key::Named::Tab), _) => {
-        //             Some(GUIMessage::TabPressed(modifiers.shift()))
-        //         }
-        //         _ => {
-        //             // println!("{:?}, {:?}", key, modifiers);
-        //             None
-        //         }
-        //     }
-        //     // let keyboard::Key::Named(key) = key else {
-        //     //     return None;
-        //     // };
-        //     //
-        //     // match (key, modifiers) {
-        //     //     (key::Named::Tab, _) => Some(Message::TabPressed {
-        //     //         shift: modifiers.shift(),
-        //     //     }),
-        //     //     (key::Named::ArrowUp, keyboard::Modifiers::SHIFT) => {
-        //     //         Some(Message::ToggleFullscreen(window::Mode::Fullscreen))
-        //     //     }
-        //     //     (key::Named::ArrowDown, keyboard::Modifiers::SHIFT) => {
-        //     //         Some(Message::ToggleFullscreen(window::Mode::Windowed))
-        //     //     }
-        //     //     _ => None,
-        //     // }
-        // });
-
-        Subscription::batch(vec![connection_subscriber, keyboard_subscriber])
+        iced::Subscription::batch(vec![connection_subscriber, keyboard::on_key_press(handle_shortcuts)])
     }
 
-    fn theme(&self) -> Theme {
+    pub fn theme(&self) -> Theme {
         self.get_theme()
     }
 }
+//
+// impl Application for ManagerState {
+//     type Flags = ();
+//     type Theme = Theme;
+//     type Message = GUIMessage;
+//     type Executor = iced::executor::Default;
+//
+//     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
+//         (Self::default(), Command::none())
+//     }
+//
+//     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+//         match message {
+//             GUIMessage::Event(event) => match event {
+//                 connection::Event::Connected(connection) => {
+//                     self.state = ConnectionState::Connected(connection);
+//                     self.send_message(vec![ManagerMessage::Info]);
+//                 }
+//                 connection::Event::Disconnected => {
+//                     self.state = ConnectionState::Disconnected;
+//                 }
+//                 connection::Event::ReceiveOutput(output) => match output {
+//                     Output::Info(info) => {
+//                         // println!("Received info: {:?}", info);
+//                         self.update(info);
+//                     }
+//                     Output::Read(value) => {
+//                         // println!("Received read: {:?}", value);
+//                         self.update_entry(value);
+//                     }
+//                     Output::Nothing => {}
+//                     _ => todo!(),
+//                 },
+//
+//                 connection::Event::ReceiveError(e) => {
+//                     self.internal_state = vec![];
+//                     self.temp_message = TempMessage::default();
+//                     self.notice = Some(format!("Encountered an error: {}", e));
+//                     return close_popup();
+//                 }
+//             },
+//             GUIMessage::ClosePopup => {
+//                 self.notice = None;
+//             }
+//             // GUIMessage::Send(message) => self.send_message(vec![message]),
+//             GUIMessage::VaultMessage(message, vault) => match message {
+//                 VaultMessage::Entry(entry_message, key) => match entry_message {
+//                     EntryMessage::Delete => {
+//                         self.temp_message = TempMessage::Delete(vault, key);
+//                         if self.needs_password() {
+//                             return self.push_internal_state(PasswordState::default());
+//                         }
+//                     }
+//                     EntryMessage::View => {
+//                         self.temp_message = TempMessage::Get(vault, key.clone());
+//
+//                         if self.needs_password() {
+//                             return self.push_internal_state(PasswordState::default());
+//                         }
+//                     }
+//                 },
+//                 VaultMessage::NewEntry => {
+//                     self.temp_message = TempMessage::New(
+//                         vault.to_string(),
+//                         String::new(),
+//                         StoreChoice::default(),
+//                         StoreChoice::default().convert_default().as_hash(),
+//                     );
+//                     let command = self.push_internal_state(NewEntryState::for_vault(vault));
+//                     let gen_password = delayed_command(0, |_| GUIMessage::GeneratePassword);
+//                     return Command::batch(vec![command, gen_password]);
+//                 }
+//                 VaultMessage::Delete => {
+//                     if self.info.get(&vault).unwrap().is_empty() {
+//                         self.send_message(vec![
+//                             ManagerMessage::DeleteEmptyVault(vault),
+//                             ManagerMessage::Info,
+//                         ]);
+//                     } else {
+//                         self.temp_message = TempMessage::DeleteVault(vault);
+//                     }
+//                     if self.needs_password() {
+//                         return self.push_internal_state(PasswordState::default());
+//                     }
+//                 }
+//                 VaultMessage::Toggle => {
+//                     if let Some(value) = self.vaults.get_mut(&vault) {
+//                         value.toggle();
+//                     }
+//                 }
+//             },
+//
+//             GUIMessage::PasswordChanged(p) => {
+//                 if let Some(InternalState::Password(password_state)) = self.active_state_mut() {
+//                     password_state.password = p;
+//                 }
+//             }
+//             GUIMessage::PasswordConfirmChanged(p) => {
+//                 if let Some(InternalState::Password(password_state)) = self.active_state_mut() {
+//                     password_state.confirm = Some(p);
+//                 }
+//             }
+//             GUIMessage::PromptChanged(p) => {
+//                 if let Some(InternalState::Prompt(prompt_state)) = self.active_state_mut() {
+//                     prompt_state.vault = p;
+//                 }
+//             }
+//
+//             GUIMessage::ChangeName(n) => {
+//                 if let Some(InternalState::New(new_state)) = self.active_state_mut() {
+//                     new_state.name.clone_from(&n);
+//                 }
+//                 if let TempMessage::New(_, ref mut key, _, _) = &mut self.temp_message {
+//                     *key = n;
+//                 }
+//             }
+//             GUIMessage::SelectStyle(choice) => {
+//                 if let Some(InternalState::New(new_state)) = self.active_state_mut() {
+//                     new_state.choice = choice;
+//                     // new_state.value = choice.convert_default().as_hash();
+//                 }
+//                 if let TempMessage::New(_, _, ref mut style, _) = &mut self.temp_message {
+//                     *style = choice;
+//                     // *value = choice.convert_default().as_hash();
+//                 }
+//             }
+//             GUIMessage::UpdateField(k, v) => {
+//                 match self.active_state_mut() {
+//                     Some(InternalState::New(new_state)) => {
+//                         new_state.value.insert(k.clone(), v.clone());
+//                     }
+//                     Some(InternalState::Entry(entry_state)) => {
+//                         entry_state.value.insert(k.clone(), v.clone());
+//                     }
+//                     _ => {}
+//                 };
+//                 match &mut self.temp_message {
+//                     TempMessage::New(_, _, _, ref mut value) => {
+//                         value.insert(k, v);
+//                     }
+//                     TempMessage::Update(_, _, _, ref mut value) => {
+//                         value.insert(k, v);
+//                     }
+//                     _ => {}
+//                 };
+//             }
+//             GUIMessage::GeneratePassword => {
+//                 let spec = PasswordSpec::from_str(&self.config.password_spec).unwrap();
+//                 let password: Secret<String> = spec.generate().unwrap().into();
+//                 match self.active_state_mut() {
+//                     Some(InternalState::New(new_state)) => {
+//                         new_state
+//                             .value
+//                             .insert("password".to_string(), password.clone());
+//                     }
+//                     Some(InternalState::Entry(entry_state)) => {
+//                         entry_state
+//                             .value
+//                             .insert("password".to_string(), password.clone());
+//                     }
+//                     _ => {}
+//                 };
+//                 match &mut self.temp_message {
+//                     TempMessage::New(_, _, _, ref mut value) => {
+//                         value.insert("password".to_string(), password);
+//                     }
+//                     TempMessage::Update(_, _, _, ref mut value) => {
+//                         value.insert("password".to_string(), password);
+//                     }
+//                     _ => {}
+//                 };
+//             }
+//
+//             GUIMessage::Submit => {
+//                 if let Some(active_state) = self.active_state() {
+//                     match active_state {
+//                         InternalState::Password(password_state) => {
+//                             if password_state.valid() {
+//                                 return self
+//                                     .handle_password_submit(password_state.password.clone());
+//                             } else {
+//                                 self.notice = Some("Passwords do not match".into());
+//                                 return close_popup();
+//                             }
+//                         }
+//                         InternalState::New(new_state) => {
+//                             if let Some(schema) = self.info.get(&new_state.vault) {
+//                                 // println!("{:?}", schema);
+//                                 if self.temp_message.complete() {
+//                                     if schema.is_empty() {
+//                                         return self.push_internal_state(PasswordState::confirm());
+//                                     } else if !schema.data.contains_key(&new_state.name) {
+//                                         return self.push_internal_state(PasswordState::default());
+//                                     }
+//                                 } else {
+//                                     self.notice = Some("Fill all fields before submitting".into());
+//                                     return close_popup();
+//                                 }
+//                             }
+//                         }
+//                         InternalState::Entry(entry_state) => {
+//                             if let Some(schema) = self.info.get(&entry_state.vault) {
+//                                 if schema.data.contains_key(&entry_state.key)
+//                                     && self.temp_message.complete()
+//                                 {
+//                                     if let Some(password) = self.get_password() {
+//                                         let message = self.temp_message.with_password(password);
+//                                         self.send_message(vec![message]);
+//                                         self.temp_message = TempMessage::default();
+//                                         self.internal_state = vec![];
+//                                     } else {
+//                                         return self.push_internal_state(PasswordState::default());
+//                                     }
+//                                 } else {
+//                                     self.notice = Some("Fill all fields before submitting".into());
+//                                     return close_popup();
+//                                 }
+//                             }
+//                         }
+//                         // InternalState::NewVault(new_vault_state) => {
+//                         //     if !self.info.data.contains_key(&new_vault_state.vault)
+//                         //         && self.temp_message.complete()
+//                         //     {
+//                         //         let new_message =
+//                         //             ManagerMessage::NewVault(new_vault_state.vault.clone());
+//                         //         self.internal_state.push(PasswordState::default().into());
+//                         //         self.send_message(vec![new_message])
+//                         //     }
+//                         // }
+//                         InternalState::Prompt(prompt_state) => {
+//                             if !self.info.data.contains_key(&prompt_state.vault)
+//                                 && !prompt_state.vault.is_empty()
+//                             {
+//                                 let message = ManagerMessage::NewVault(prompt_state.vault.clone());
+//                                 self.send_message(vec![message, ManagerMessage::Info]);
+//                                 self.internal_state.pop();
+//                             } else {
+//                                 if self.info.data.contains_key(&prompt_state.vault) {
+//                                     self.notice = Some("This vault already exists".into());
+//                                     return close_popup();
+//                                 }
+//                                 if prompt_state.vault.is_empty() {
+//                                     self.notice = Some("Need a name to create vault".into());
+//                                     return close_popup();
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//             GUIMessage::Exit => {
+//                 if let Some(active_state) = self.active_state() {
+//                     match active_state {
+//                         InternalState::Password(_password_state) => {
+//                             match self.temp_message {
+//                                 TempMessage::Delete(..) => {
+//                                     self.temp_message = TempMessage::default();
+//                                 }
+//                                 TempMessage::Get(..) => {
+//                                     self.temp_message = TempMessage::default();
+//                                 }
+//                                 TempMessage::DeleteVault(..) => {
+//                                     self.temp_message = TempMessage::default();
+//                                 }
+//                                 TempMessage::DeleteEmptyVault(..) => {
+//                                     self.temp_message = TempMessage::default();
+//                                 }
+//                                 TempMessage::Update(..) => {}
+//                                 TempMessage::New(..) => {}
+//                                 TempMessage::Empty => {}
+//                             }
+//                             self.internal_state.pop();
+//                         }
+//                         InternalState::Entry(_entry_state) => {
+//                             self.temp_message = TempMessage::default();
+//                             self.internal_state = vec![];
+//                         }
+//                         InternalState::New(_new_state) => {
+//                             self.temp_message = TempMessage::default();
+//                             self.internal_state = vec![];
+//                         }
+//                         InternalState::Prompt(_) => {
+//                             self.internal_state.pop();
+//                         }
+//                     }
+//                 }
+//             }
+//
+//             GUIMessage::ShowPassword => {
+//                 if let Some(state) = self.active_state_mut() {
+//                     match state {
+//                         InternalState::Entry(entry_state) => entry_state.hidden = false,
+//                         InternalState::New(new_state) => new_state.hidden = false,
+//                         _ => (),
+//                     }
+//                 }
+//             }
+//             GUIMessage::HidePassword => {
+//                 if let Some(state) = self.active_state_mut() {
+//                     match state {
+//                         InternalState::Entry(entry_state) => entry_state.hidden = true,
+//                         InternalState::New(new_state) => new_state.hidden = true,
+//                         _ => (),
+//                     }
+//                 }
+//             }
+//             GUIMessage::CopyPassword => {
+//                 if let Some(InternalState::Entry(entry_state)) = self.active_state_mut() {
+//                     if let Some(p) = entry_state.get_password() {
+//                         return Command::batch(vec![
+//                             iced::clipboard::read(|s| {
+//                                 GUIMessage::CopyClipboard(s.map(|x| x.into()))
+//                             }),
+//                             iced::clipboard::write(p.expose_secret().into()),
+//                             delayed_command(self.config.clipboard_time, |_| {
+//                                 GUIMessage::ClearClipboard
+//                             }),
+//                         ]);
+//                     }
+//                 }
+//             }
+//             GUIMessage::CopyClipboard(data) => self.stored_clipboard = data,
+//             GUIMessage::ClearClipboard => {
+//                 let contents: Secret<String> = self
+//                     .stored_clipboard
+//                     .clone()
+//                     .unwrap_or_else(|| Secret::new(String::new()));
+//                 self.stored_clipboard = None;
+//                 return iced::clipboard::write(contents.expose_secret().into());
+//             }
+//             GUIMessage::NewVault => return self.push_internal_state(PromptState::default()),
+//             GUIMessage::ChangeTheme(theme) => {
+//                 self.config.theme = theme.to_string();
+//                 if self.config.save().is_err() {
+//                     self.notice = Some("Failed to save config file".into());
+//                     return close_popup();
+//                 }
+//             }
+//             GUIMessage::TabPressed(shift) => {
+//                 return if shift {
+//                     widget::focus_previous()
+//                 } else {
+//                     widget::focus_next()
+//                 }
+//             }
+//             GUIMessage::Close => return window::close(window::Id::MAIN),
+//             GUIMessage::Nothing => {}
+//         }
+//
+//         Command::none()
+//     }
+//
+//     fn view(&self) -> Element<Self::Message> {
+//         self.view()
+//     }
+//
+//     fn subscription(&self) -> Subscription<Self::Message> {
+//         let connection_subscriber = connection::connect().map(GUIMessage::Event);
+//
+//         let keyboard_subscriber = keyboard::on_key_press(|key, modifiers| {
+//             for (_, shortcut) in SHORTCUTS.iter() {
+//                 let res = shortcut.check(&key, &modifiers);
+//                 if res.is_some() {
+//                     return res;
+//                 }
+//             }
+//             None
+//         });
+//
+//         // let keyboard_subscriber = keyboard::on_key_press(|key, modifiers| {
+//         //     // println!("{:?}, {:?}", key, modifiers);
+//         //     println!("{:?}", keyboard::Modifiers::COMMAND);
+//         //     match (key.as_ref(), modifiers) {
+//         //         (key::Key::Character("n"), keyboard::Modifiers::COMMAND) => {
+//         //             Some(GUIMessage::NewVault)
+//         //         }
+//         //         (key::Key::Character("q"), keyboard::Modifiers::COMMAND) => Some(GUIMessage::Close),
+//         //         (key::Key::Named(key::Named::Tab), _) => {
+//         //             Some(GUIMessage::TabPressed(modifiers.shift()))
+//         //         }
+//         //         _ => {
+//         //             // println!("{:?}, {:?}", key, modifiers);
+//         //             None
+//         //         }
+//         //     }
+//         //     // let keyboard::Key::Named(key) = key else {
+//         //     //     return None;
+//         //     // };
+//         //     //
+//         //     // match (key, modifiers) {
+//         //     //     (key::Named::Tab, _) => Some(Message::TabPressed {
+//         //     //         shift: modifiers.shift(),
+//         //     //     }),
+//         //     //     (key::Named::ArrowUp, keyboard::Modifiers::SHIFT) => {
+//         //     //         Some(Message::ToggleFullscreen(window::Mode::Fullscreen))
+//         //     //     }
+//         //     //     (key::Named::ArrowDown, keyboard::Modifiers::SHIFT) => {
+//         //     //         Some(Message::ToggleFullscreen(window::Mode::Windowed))
+//         //     //     }
+//         //     //     _ => None,
+//         //     // }
+//         // });
+//
+//         Subscription::batch(vec![connection_subscriber, keyboard_subscriber])
+//     }
+//
+//     fn theme(&self) -> Theme {
+//         self.get_theme()
+//     }
+// }
 
-fn section_header<'a>(label: &str) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
-    base_button(text(label), Some(GUIMessage::Nothing))
+fn section_header<'a>(label: impl Into<String>) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+    base_button(text(label.into()), Some(GUIMessage::Nothing))
 }
 
-fn submenu_item<'a>(label: &str) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+fn submenu_item<'a>(label: impl Into<String>) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
     base_button(
         row![
-            text(label).width(Length::Fill),
+            text(label.into()).width(Length::Fill),
             text(">").width(Length::Shrink)
         ],
         Some(GUIMessage::Nothing),
@@ -807,5 +1200,5 @@ fn base_button<'a>(
     } else {
         button(content).padding([4, 8])
     };
-    button.style(theme::Button::Secondary)
+    button.style(button::secondary)
 }

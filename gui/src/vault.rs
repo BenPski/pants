@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use boring_derive::Builder;
 use iced::{
-    alignment, theme,
+    alignment,
     widget::{button, column, container, row, text, tooltip},
     Element, Length,
 };
@@ -60,7 +60,7 @@ impl Vault {
         let delete_button = tooltip(
             button("X")
                 .on_press(VaultMessage::Delete)
-                .style(theme::Button::Destructive),
+                .style(button::danger),
             "Delete vault",
             tooltip::Position::Bottom,
         );
@@ -85,7 +85,7 @@ impl Vault {
             container(
                 button(
                     text("+")
-                        .horizontal_alignment(alignment::Horizontal::Center)
+                        .align_x(alignment::Horizontal::Center)
                         .width(Length::Fill),
                 )
                 .width(Length::Fill)

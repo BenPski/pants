@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use gui_message::GUIMessage;
-use iced::{keyboard, widget::text_input, Application, Font, Padding, Rectangle, Settings, Theme};
+use iced::{keyboard, widget::text_input, Font, Padding, Rectangle, Settings, Theme};
 use once_cell::sync::Lazy;
 use shortcut::Shortcut;
 use state::manager::ManagerState;
@@ -74,8 +74,12 @@ pub static SHORTCUTS: Lazy<HashMap<String, Shortcut>> = Lazy::new(|| {
 pub static INPUT_ID: Lazy<text_input::Id> = Lazy::new(text_input::Id::unique);
 
 pub fn run() -> iced::Result {
-    ManagerState::run(Settings {
-        default_font: Font::MONOSPACE,
-        ..Default::default()
-    })
+    iced::application(
+        ManagerState::title,
+        ManagerState::update,
+        ManagerState::view,
+    )
+    .subscription(ManagerState::subscription)
+    .theme(ManagerState::theme)
+    .run()
 }

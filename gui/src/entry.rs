@@ -1,5 +1,4 @@
 use iced::{
-    theme,
     widget::{button, container, row, text},
     Element, Length,
 };
@@ -25,7 +24,7 @@ impl Entry {
         let view_button = button("View").on_press(EntryMessage::View);
         let delete_button = button("Delete")
             .on_press(EntryMessage::Delete)
-            .style(theme::Button::Destructive);
+            .style(button::danger);
         let content = row![view_button, value, delete_button];
         container(content)
             .width(Length::Fill)

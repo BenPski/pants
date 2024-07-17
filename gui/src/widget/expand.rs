@@ -8,7 +8,6 @@ use iced::{
     },
     touch, Alignment, Color, Element, Event, Length, Padding, Pixels, Point, Shadow, Size,
 };
-use iced_futures::core::event;
 
 use crate::{style::expand::StyleSheet, with_padding};
 
@@ -175,7 +174,7 @@ where
         tree: &mut Tree,
         layout: layout::Layout<'_>,
         renderer: &Renderer,
-        operation: &mut dyn iced::advanced::widget::Operation<Message>,
+        operation: &mut dyn iced::advanced::widget::Operation<()>,
     ) {
         operation.container(None, layout.bounds(), &mut |operation| {
             self.elements()
@@ -200,7 +199,7 @@ where
         clipboard: &mut dyn iced::advanced::Clipboard,
         shell: &mut iced::advanced::Shell<'_, Message>,
         viewport: &iced::Rectangle,
-    ) -> iced_futures::core::event::Status {
+    ) -> iced::event::Status {
         let child_event = self
             .elements
             .iter_mut()
@@ -218,7 +217,9 @@ where
                     viewport,
                 )
             })
-            .fold(event::Status::Ignored, event::Status::merge);
+            .fold(iced::event::Status::Ignored, |acc, e| {
+                iced::event::Status::merge(acc, e)
+            });
         let header_event = match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
@@ -229,14 +230,14 @@ where
                     if let Some(on_press) = &self.on_press {
                         shell.publish(on_press.clone());
                     }
-                    event::Status::Captured
+                    iced::event::Status::Captured
                 } else {
-                    event::Status::Ignored
+                    iced::event::Status::Ignored
                 }
             }
-            _ => event::Status::Ignored,
+            _ => iced::event::Status::Ignored,
         };
-        event::Status::merge(child_event, header_event)
+        iced::event::Status::merge(child_event, header_event)
     }
 
     fn mouse_interaction(

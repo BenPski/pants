@@ -3,7 +3,6 @@ use iced::{
     advanced::{layout::Node, overlay, renderer, widget::Tree, Widget},
     Element, Length, Padding, Pixels, Point, Size,
 };
-use iced_futures::core::event;
 
 use crate::style::card::StyleSheet;
 
@@ -221,7 +220,7 @@ where
         state: &mut Tree,
         layout: iced::advanced::Layout<'_>,
         renderer: &Renderer,
-        operation: &mut dyn iced::advanced::widget::Operation<Message>,
+        operation: &mut dyn iced::advanced::widget::Operation<()>,
     ) {
         operation.container(None, layout.bounds(), &mut |operation| {
             self.elements
@@ -246,24 +245,25 @@ where
         clipboard: &mut dyn iced::advanced::Clipboard,
         shell: &mut iced::advanced::Shell<'_, Message>,
         viewport: &iced::Rectangle,
-    ) -> iced_futures::core::event::Status {
-        self.elements
-            .iter_mut()
-            .zip(&mut state.children)
-            .zip(layout.children())
-            .map(|((child, state), layout)| {
-                child.as_widget_mut().on_event(
-                    state,
-                    event.clone(),
-                    layout,
-                    cursor,
-                    renderer,
-                    clipboard,
-                    shell,
-                    viewport,
-                )
-            })
-            .fold(event::Status::Ignored, event::Status::merge)
+    ) -> iced::event::Status {
+        iced::event::Status::Ignored
+        // self.elements
+        //     .iter_mut()
+        //     .zip(&mut state.children)
+        //     .zip(layout.children())
+        //     .map(|((child, state), layout)| {
+        //         child.as_widget_mut().on_event(
+        //             state,
+        //             event.clone(),
+        //             layout,
+        //             cursor,
+        //             renderer,
+        //             clipboard,
+        //             shell,
+        //             viewport,
+        //         )
+        //     })
+        //     .fold(event::Status::Ignored, event::Status::merge)
     }
 
     fn mouse_interaction(
