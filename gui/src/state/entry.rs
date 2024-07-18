@@ -2,7 +2,6 @@ use iced::{
     widget::{button, column, container, row, text, text_input},
     Element, Length,
 };
-use iced_aw::Card;
 use secrecy::ExposeSecret;
 
 use pants_store::{
@@ -10,7 +9,7 @@ use pants_store::{
     Password,
 };
 
-use crate::{gui_message::GUIMessage, INPUT_ID};
+use crate::{gui_message::GUIMessage, widget::helpers::form, INPUT_ID};
 
 #[derive(Debug, Clone)]
 pub struct EntryState {
@@ -88,7 +87,7 @@ impl EntryState {
 
         let save_button = button("Save").on_press(GUIMessage::Submit);
         let done_button = button("Done").on_press(GUIMessage::Exit);
-        Card::new(header, column![data_input, row![save_button, done_button]])
+        form(header, column![data_input, row![save_button, done_button]])
             .max_width(500.0)
             .into()
     }

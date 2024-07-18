@@ -2,9 +2,8 @@ use iced::{
     widget::{button, column, container, row, text, text_input},
     Element,
 };
-use iced_aw::Card;
 
-use crate::{gui_message::GUIMessage, INPUT_ID};
+use crate::{gui_message::GUIMessage, widget::helpers::form, INPUT_ID};
 
 #[derive(Debug, Clone, Default)]
 pub struct PromptState {
@@ -21,7 +20,7 @@ impl PromptState {
 
         let create_button = button("Create").on_press(GUIMessage::Submit);
         let cancel_button = button("Cancel").on_press(GUIMessage::Exit);
-        Card::new(
+        form(
             header,
             container(column![name_input, row![create_button, cancel_button]]),
         )

@@ -1,7 +1,4 @@
-use iced::{
-    futures::{channel::mpsc, SinkExt, Stream},
-    Subscription,
-};
+use iced::futures::{channel::mpsc, SinkExt, Stream};
 
 use pants_store::{manager_message::ManagerMessage, output::Output, vault::manager::VaultManager};
 #[derive(Debug, Clone)]
@@ -35,7 +32,6 @@ impl Connection {
     }
 }
 pub fn connect() -> impl Stream<Item = Event> {
-    struct Connect;
     let mut interface = VaultManager::default();
     iced::stream::channel(100, |mut output| async move {
         let mut state = State::Starting;

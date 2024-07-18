@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use gui_message::GUIMessage;
-use iced::{keyboard, widget::text_input, Font, Padding, Rectangle, Settings, Theme};
+use iced::{keyboard, widget::text_input, Padding, Rectangle, Theme};
 use once_cell::sync::Lazy;
 use shortcut::Shortcut;
 use state::manager::ManagerState;

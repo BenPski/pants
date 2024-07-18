@@ -2,12 +2,11 @@ use iced::{
     widget::{button, column, container, text, text_input},
     Element, Length,
 };
-use iced_aw::Card;
 use secrecy::ExposeSecret;
 
 use pants_store::Password;
 
-use crate::{gui_message::GUIMessage, INPUT_ID};
+use crate::{gui_message::GUIMessage, widget::helpers::form, INPUT_ID};
 
 #[derive(Debug, Clone)]
 pub struct PasswordState {
@@ -64,7 +63,7 @@ impl PasswordState {
             column![password_input]
         };
         let cancel = button("Cancel").on_press(GUIMessage::Exit);
-        Card::new(header, container(column![password_input, cancel]))
+        form(header, container(column![password_input, cancel]))
             .max_width(500.0)
             .into()
     }

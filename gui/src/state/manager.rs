@@ -10,16 +10,20 @@ use crate::{
     state::{entry::EntryState, new_entry::NewEntryState, password::PasswordState},
     temp_message::TempMessage,
     vault::{Vault, VaultMessage},
+    widget::helpers::modal,
     INPUT_ID, SHORTCUTS, THEMES,
 };
 use iced::{
-    alignment, clipboard, keyboard, widget::{self, button, center, column, container, mouse_area, opaque, row, scrollable, stack, text, text_input, tooltip},
+    clipboard, keyboard,
+    widget::{
+        self, button, column, container, row, scrollable, text,
+        text_input, tooltip,
+    },
     window, Border, Element, Length, Task, Theme,
 };
 use iced_aw::{
-    menu::{self, primary, Item, Menu, },
-    menu_bar, menu_items, 
-    
+    menu::{self, primary, Item, Menu},
+    menu_bar, menu_items,
 };
 
 use pants_gen::password::PasswordSpec;
@@ -256,17 +260,14 @@ impl ManagerState {
 
         // let info = self.temp_message.view();
         let primary = container(column![menu, content]).height(Length::Fill);
-        
+
         let main: Element<_> = if let Some(top_layer) = top_layer {
-            stack![
-                primary,
-                mouse_area(center(opaque(top_layer))).on_press(GUIMessage::Exit)
-            ].into()
+            modal(primary, top_layer, GUIMessage::Exit).into()
         } else {
-                primary.into()
-            };
-            // .backdrop(GUIMessage::Exit)
-            // .on_esc(GUIMessage::Exit)
+            primary.into()
+        };
+        // .backdrop(GUIMessage::Exit)
+        // .on_esc(GUIMessage::Exit)
         if let Some(t) = &self.notice {
             let popup = button(
                 container(text(t))
@@ -294,7 +295,7 @@ impl ManagerState {
             //     .hide(false)
             //     .into()
         } else {
-            main.into()
+            main
         }
     }
 }
@@ -593,9 +594,7 @@ impl ManagerState {
                 }
             }
             GUIMessage::Exit => {
-                println!("Received exit");
                 if let Some(active_state) = self.active_state() {
-                    println!("Has active state");
                     match active_state {
                         InternalState::Password(_password_state) => {
                             match self.temp_message {
@@ -629,8 +628,6 @@ impl ManagerState {
                             self.internal_state.pop();
                         }
                     }
-                } else {
-                    println!("No active state");
                 }
             }
 
@@ -702,7 +699,8 @@ impl ManagerState {
     }
 
     pub fn subscription(&self) -> iced::Subscription<GUIMessage> {
-        let connection_subscriber = iced::Subscription::run(connection::connect).map(GUIMessage::Event);
+        let connection_subscriber =
+            iced::Subscription::run(connection::connect).map(GUIMessage::Event);
 
         // let keyboard_subscriber = keyboard::on_key_press(|key, modifiers| {
         //     for (_, shortcut) in SHORTCUTS.iter() {
@@ -714,8 +712,11 @@ impl ManagerState {
         //     None
         // });
 
-        fn handle_shortcuts(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<GUIMessage> {
-for (_, shortcut) in SHORTCUTS.iter() {
+        fn handle_shortcuts(
+            key: keyboard::Key,
+            modifiers: keyboard::Modifiers,
+        ) -> Option<GUIMessage> {
+            for (_, shortcut) in SHORTCUTS.iter() {
                 let res = shortcut.check(&key, &modifiers);
                 if res.is_some() {
                     return res;
@@ -724,7 +725,10 @@ for (_, shortcut) in SHORTCUTS.iter() {
             None
         }
 
-        iced::Subscription::batch(vec![connection_subscriber, keyboard::on_key_press(handle_shortcuts)])
+        iced::Subscription::batch(vec![
+            connection_subscriber,
+            keyboard::on_key_press(handle_shortcuts),
+        ])
     }
 
     pub fn theme(&self) -> Theme {
@@ -1142,11 +1146,15 @@ for (_, shortcut) in SHORTCUTS.iter() {
 //     }
 // }
 
-fn section_header<'a>(label: impl Into<String>) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+fn section_header<'a>(
+    label: impl Into<String>,
+) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
     base_button(text(label.into()), Some(GUIMessage::Nothing))
 }
 
-fn submenu_item<'a>(label: impl Into<String>) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
+fn submenu_item<'a>(
+    label: impl Into<String>,
+) -> button::Button<'a, GUIMessage, iced::Theme, iced::Renderer> {
     base_button(
         row![
             text(label.into()).width(Length::Fill),
