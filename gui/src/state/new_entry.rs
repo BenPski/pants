@@ -2,11 +2,12 @@ use iced::{
     widget::{button, column, container, pick_list, row, text, text_input},
     Element, Length,
 };
+use iced_aw::Card;
 use secrecy::ExposeSecret;
 
 use pants_store::store::{StoreChoice, StoreHash};
 
-use crate::{gui_message::GUIMessage, widget::card::Card, INPUT_ID};
+use crate::{gui_message::GUIMessage, INPUT_ID};
 
 #[derive(Debug, Clone)]
 pub struct NewEntryState {
@@ -131,12 +132,12 @@ impl NewEntryState {
         // card.into()
         Card::new(
             header,
-            container(column![
+            column![
                 row![name_prefix, name_input],
                 style_choice,
                 data_input,
                 row![create_button, cancel_button]
-            ]),
+            ],
         )
         .max_width(500.0)
         .into()

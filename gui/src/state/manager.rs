@@ -13,7 +13,7 @@ use crate::{
     INPUT_ID, SHORTCUTS, THEMES,
 };
 use iced::{
-    alignment, clipboard, keyboard, widget::{self, button, column, container, row, scrollable, stack, text, text_input, tooltip},
+    alignment, clipboard, keyboard, widget::{self, button, center, column, container, mouse_area, opaque, row, scrollable, stack, text, text_input, tooltip},
     window, Border, Element, Length, Task, Theme,
 };
 use iced_aw::{
@@ -255,16 +255,18 @@ impl ManagerState {
         );
 
         // let info = self.temp_message.view();
-        let primary = container(column![menu, content]);
+        let primary = container(column![menu, content]).height(Length::Fill);
         
-        let main = container(if let Some(top_layer) = top_layer {
-            stack(vec![primary.into(), top_layer])
+        let main: Element<_> = if let Some(top_layer) = top_layer {
+            stack![
+                primary,
+                mouse_area(center(opaque(top_layer))).on_press(GUIMessage::Exit)
+            ].into()
         } else {
-                stack(vec![primary.into()])
-            })
+                primary.into()
+            };
             // .backdrop(GUIMessage::Exit)
             // .on_esc(GUIMessage::Exit)
-            .align_y(alignment::Vertical::Center);
         if let Some(t) = &self.notice {
             let popup = button(
                 container(text(t))
@@ -591,7 +593,9 @@ impl ManagerState {
                 }
             }
             GUIMessage::Exit => {
+                println!("Received exit");
                 if let Some(active_state) = self.active_state() {
+                    println!("Has active state");
                     match active_state {
                         InternalState::Password(_password_state) => {
                             match self.temp_message {
@@ -625,6 +629,8 @@ impl ManagerState {
                             self.internal_state.pop();
                         }
                     }
+                } else {
+                    println!("No active state");
                 }
             }
 

@@ -2,8 +2,9 @@ use iced::{
     widget::{button, column, container, row, text, text_input},
     Element,
 };
+use iced_aw::Card;
 
-use crate::{gui_message::GUIMessage, widget::card::Card, INPUT_ID};
+use crate::{gui_message::GUIMessage, INPUT_ID};
 
 #[derive(Debug, Clone, Default)]
 pub struct PromptState {
