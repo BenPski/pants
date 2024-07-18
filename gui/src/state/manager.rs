@@ -15,10 +15,7 @@ use crate::{
 };
 use iced::{
     clipboard, keyboard,
-    widget::{
-        self, button, column, container, row, scrollable, text,
-        text_input, tooltip,
-    },
+    widget::{self, button, column, container, row, scrollable, text, text_input, tooltip},
     window, Border, Element, Length, Task, Theme,
 };
 use iced_aw::{
@@ -236,14 +233,15 @@ impl ManagerState {
             )
         )
         .draw_path(menu::DrawPath::Backdrop)
-            
         .style(|theme:&iced::Theme, status: iced_aw::style::Status| menu::Style{
-            // path_border: Border{
-            //     radius: [6.0; 4].into(),
-            //     ..Default::default()
-            // },
-                ..primary(theme, status)
+                        ..primary(theme, status)
         });
+        // .style(|theme:&iced::Theme, status: iced_aw::style::Status| menu::Style{
+        //     path_border: Border{
+        //         radius: [6.0; 4].into(),
+        //         ..Default::default()
+        //     },
+        // });
 
         // let new_vault = button("New Vault").on_press(GUIMessage::NewVault);
         let content = scrollable(
