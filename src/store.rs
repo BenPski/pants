@@ -2,7 +2,10 @@ use std::{collections::HashMap, fmt::Display};
 
 use enum_iterator::{all, Sequence};
 use secrecy::{ExposeSecret, Secret};
-use serde::{ser::SerializeTupleVariant, Deserialize, Serialize};
+use serde::{
+    ser::{SerializeMap, SerializeTupleVariant},
+    Deserialize, Serialize,
+};
 
 pub type StoreHash = HashMap<String, Secret<String>>;
 
@@ -10,6 +13,7 @@ pub type StoreHash = HashMap<String, Secret<String>>;
 pub enum StoreChoice {
     Password,
     UsernamePassword,
+    Generic,
 }
 
 impl Display for StoreChoice {
@@ -17,6 +21,7 @@ impl Display for StoreChoice {
         match self {
             StoreChoice::Password => write!(f, "Password"),
             StoreChoice::UsernamePassword => write!(f, "Username/Password"),
+            StoreChoice::Generic => write!(f, "Generic"),
         }
     }
 }
@@ -39,6 +44,7 @@ impl StoreChoice {
                 let u = data.get("username")?;
                 Some(Store::UsernamePassword(u.clone(), p.clone()))
             }
+            Self::Generic => Some(Store::Generic(data.clone())),
         }
     }
 
@@ -50,6 +56,7 @@ impl StoreChoice {
                 String::new().into(),
                 // StoreValue::Secret(String::new().into()),
             ),
+            Self::Generic => Store::Generic(HashMap::new()),
         }
     }
 
@@ -62,6 +69,7 @@ impl StoreChoice {
 pub enum Store {
     Password(Secret<String>),
     UsernamePassword(Secret<String>, Secret<String>),
+    Generic(HashMap<String, Secret<String>>),
 }
 
 impl Serialize for Store {
@@ -80,6 +88,13 @@ impl Serialize for Store {
                     serializer.serialize_tuple_variant("Store", 1, "UsernamePassword", 2)?;
                 state.serialize_field(u.expose_secret())?;
                 state.serialize_field(p.expose_secret())?;
+                state.end()
+            }
+            Self::Generic(m) => {
+                let mut state = serializer.serialize_map(Some(m.len()))?;
+                for (k, v) in m {
+                    state.serialize_entry(k, v.expose_secret())?;
+                }
                 state.end()
             }
         }
@@ -101,6 +116,7 @@ impl Store {
         match self {
             Self::Password(_) => "password".to_string(),
             Self::UsernamePassword(_, _) => "username-password".to_string(),
+            Self::Generic(_) => "generic".to_string(),
         }
     }
 
@@ -117,6 +133,7 @@ impl Store {
                 map.insert("username".to_string(), u.clone());
                 (StoreChoice::UsernamePassword, map)
             }
+            Self::Generic(m) => (StoreChoice::Generic, m.clone()),
         }
     }
 

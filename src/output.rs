@@ -10,5 +10,6 @@ pub enum Output {
     Read(Reads<Store>),
     List(Vec<String>),
     Backup(BackupFile),
+    Content(String),
     Nothing,
 }

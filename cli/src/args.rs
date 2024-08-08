@@ -1,4 +1,3 @@
-use core::panic;
 use std::{process::exit, str::FromStr, thread, time::Duration};
 
 use arboard::Clipboard;
@@ -21,7 +20,7 @@ use pants_store::{
     Password,
 };
 
-use crate::client_config::ClientConfig;
+use crate::{client_config::ClientConfig, gen_args};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum OutputStyle {
@@ -97,9 +96,14 @@ pub enum CLICommands {
     Rotate {
         /// name of the vault
         vault: String,
-    }, // Transaction,
+    },
+    /// export the contents of the vault
+    Export {
+        /// name of the vault
+        vault: String,
+    },
     /// generate password
-    Gen(pants_gen::cli::CliArgs),
+    Gen(gen_args::CliArgs),
     /// generate completion file
     Completion { shell: Shell },
 }
@@ -208,6 +212,15 @@ impl CliApp {
                                         println!("  password: <Copied to clipboard>");
                                         thread::sleep(Duration::from_secs(config.clipboard_time));
                                     }
+                                    Store::Generic(ref data) => {
+                                        for (k, v) in data {
+                                            clipboard.set_text(v.expose_secret())?;
+                                            println!("  {}:", k);
+                                            thread::sleep(Duration::from_secs(
+                                                config.clipboard_time,
+                                            ));
+                                        }
+                                    }
                                 }
                             }
                             clipboard.set_text(orig)?;
@@ -264,6 +277,10 @@ impl CliApp {
                 for file in backups {
                     println!("{}", file);
                 }
+                Ok(())
+            }
+            Output::Content(s) => {
+                println!("{s}");
                 Ok(())
             }
         }
@@ -398,7 +415,16 @@ impl CliApp {
                     Ok(ManagerMessage::Info)
                 }
             }
-            _ => panic!("Should have branched before this"),
+            CLICommands::Export { vault } => {
+                let password = Self::get_password("Vault password:")?;
+                Ok(ManagerMessage::VaultMessage(
+                    vault.into(),
+                    Message::Export(password),
+                ))
+            }
+            CLICommands::Gen(_) | CLICommands::Completion { .. } => {
+                panic!("Should have branched before this")
+            }
         }
     }
 

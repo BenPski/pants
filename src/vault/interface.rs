@@ -143,7 +143,16 @@ impl VaultHandler {
                 interface.save()?;
                 Ok(Output::Backup(new_backup))
             }
-            _ => panic!("Should have been caught by handler"),
+            Message::Export(password) => {
+                let interface = Self::load_interface(password, save_dir)?;
+                let data = interface.vault.export()?;
+                Ok(Output::Content(data))
+            }
+            Message::Import(password) => {
+                let mut interface = Self::load_interface(password, save_dir)?;
+                Ok(Output::Nothing)
+            }
+            Message::Schema | Message::BackupList => panic!("Should have been caught by handler"),
         }
     }
 
