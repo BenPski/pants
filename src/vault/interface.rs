@@ -148,8 +148,13 @@ impl VaultHandler {
                 let data = interface.vault.export()?;
                 Ok(Output::Content(data))
             }
-            Message::Import(password) => {
+            Message::Import(password, data) => {
                 let mut interface = Self::load_interface(password, save_dir)?;
+                let commands: Vec<Command> = data
+                    .into_iter()
+                    .map(|(k, v)| Command::Update { key: k, value: v })
+                    .collect();
+                interface.transaction(commands.into())?;
                 Ok(Output::Nothing)
             }
             Message::Schema | Message::BackupList => panic!("Should have been caught by handler"),

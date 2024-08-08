@@ -1,4 +1,4 @@
-use std::{process::exit, str::FromStr, thread, time::Duration};
+use std::{fs, path::PathBuf, process::exit, str::FromStr, thread, time::Duration};
 
 use arboard::Clipboard;
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
@@ -101,6 +101,13 @@ pub enum CLICommands {
     Export {
         /// name of the vault
         vault: String,
+    },
+    /// import a file into a vault
+    Import {
+        /// name of the vault
+        vault: String,
+        /// path to the file
+        path: PathBuf,
     },
     /// generate password
     Gen(gen_args::CliArgs),
@@ -420,6 +427,15 @@ impl CliApp {
                 Ok(ManagerMessage::VaultMessage(
                     vault.into(),
                     Message::Export(password),
+                ))
+            }
+            CLICommands::Import { vault, path } => {
+                let content = fs::read_to_string(path)?;
+                let data = serde_json::from_str(&content)?;
+                let password = Self::get_password("Vault password:")?;
+                Ok(ManagerMessage::VaultMessage(
+                    vault.into(),
+                    Message::Import(password, data),
                 ))
             }
             CLICommands::Gen(_) | CLICommands::Completion { .. } => {

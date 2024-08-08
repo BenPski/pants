@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{file::BackupFile, store::Store, Password};
 
 /// messages that are used to send to a particular vault
@@ -10,7 +12,7 @@ pub enum Message {
     Rotate(Password, Password),
     Restore(Password, Password, BackupFile),
     Export(Password),
-    Import(Password),
+    Import(Password, HashMap<String, Store>),
     Schema,
     BackupList,
 }
