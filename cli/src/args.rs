@@ -1,9 +1,9 @@
-use std::{fs, iter::Inspect, path::PathBuf, process::exit, str::FromStr, thread, time::Duration};
+use std::{fs, path::PathBuf, process::exit, str::FromStr, thread, time::Duration};
 
 use arboard::Clipboard;
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
-use inquire::{list_option::ListOption, Confirm};
+use inquire::{Confirm};
 use pants_gen::password::PasswordSpec;
 
 use pants_store::{
