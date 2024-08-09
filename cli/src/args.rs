@@ -40,12 +40,11 @@ impl OutputStyle {
                 let mut clipboard = Clipboard::new()?;
                 let orig = clipboard.get_text().unwrap_or("".to_string());
                 for (key, value) in reads.data.clone().into_iter() {
-                    println!("{key}");
                     for (ident, item) in value.data {
                         clipboard.set_text(item.expose_secret().to_string())?;
 
                         if inquire::Text::new(&format!(
-                            "Copied `{ident}` to clipboard, hit enter to continue"
+                            "Copied `{key}-{ident}` to clipboard, hit enter to continue"
                         ))
                         .prompt()
                         .is_err()
@@ -438,11 +437,20 @@ impl CliApp {
                 ))
             }
             CLICommands::Import { vault, path } => {
-                println!("Readign file");
+                let info = Self::get_info(manager)?;
+                let schema = info.get(vault).cloned().unwrap_or(Schema::default());
+                let new_vault = !info.data.contains_key(vault);
+                let confirm_password = new_vault || schema.is_empty();
+                if new_vault {
+                    manager.receive(ManagerMessage::NewVault(vault.into()))?;
+                }
                 let content = fs::read_to_string(path)?;
-                println!("parsing file");
                 let data = serde_json::from_str(&content)?;
-                let password = Self::get_password("Vault password:")?;
+                let password = if confirm_password {
+                    Self::get_password_confirm("Vault password:")?
+                } else {
+                    Self::get_password("Vault password:")?
+                };
                 Ok(ManagerMessage::VaultMessage(
                     vault.into(),
                     Message::Import(password, data),
