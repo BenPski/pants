@@ -3,7 +3,6 @@ use std::{fs, path::PathBuf, process::exit, str::FromStr, thread, time::Duration
 use arboard::Clipboard;
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
-use inquire::{Confirm};
 use pants_gen::password::PasswordSpec;
 
 use pants_store::{
@@ -331,7 +330,8 @@ impl CliApp {
                     ))
                 } else {
                     let choice =
-                        Confirm::new("Are you sure you want to delete the whole vault?").prompt();
+                        inquire::Confirm::new("Are you sure you want to delete the whole vault?")
+                            .prompt();
                     let schema = Self::get_schema(manager, vault.into())?;
                     if schema.is_empty() {
                         Ok(ManagerMessage::DeleteEmptyVault(vault.into()))
@@ -546,7 +546,7 @@ impl CliApp {
     }
 
     fn get_store_password(spec: PasswordSpec) -> anyhow::Result<SecretValue> {
-        let generate = Confirm::new("Generate password?")
+        let generate = inquire::Confirm::new("Generate password?")
             .with_default(true)
             .with_help_message("Create a random password or enter manually?")
             .prompt();
