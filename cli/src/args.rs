@@ -44,10 +44,11 @@ impl OutputStyle {
                     for (ident, item) in value.data {
                         clipboard.set_text(item.expose_secret().to_string())?;
 
-                        if let Err(_) = inquire::Text::new(&format!(
+                        if inquire::Text::new(&format!(
                             "Copied `{ident}` to clipboard, hit enter to continue"
                         ))
                         .prompt()
+                        .is_err()
                         {
                             break;
                         }
@@ -232,7 +233,7 @@ impl CliApp {
         Self::handle_output(config, output_style, output)
     }
     fn handle_output(
-        config: &ClientConfig,
+        _config: &ClientConfig,
         output_style: &OutputStyle,
         output: Output,
     ) -> anyhow::Result<()> {
