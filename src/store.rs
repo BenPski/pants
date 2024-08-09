@@ -89,9 +89,9 @@ impl StoredValue {
     }
 }
 
-impl ToString for StoredValue {
-    fn to_string(&self) -> String {
-        self.0.clone()
+impl Display for StoredValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
