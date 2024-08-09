@@ -2,12 +2,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::store::Store;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Action {
     // Read {
     //     key: String,
     //     value: Option<String>,
     // },
+    // since it needs a replayable record of what happened it needs the exposed values so they can
+    // be read
     Replace {
         key: String,
         start: Option<Store>,
@@ -30,7 +32,7 @@ impl Action {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Record {
     pub actions: Vec<Action>,
 }

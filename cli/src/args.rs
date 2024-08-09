@@ -1,11 +1,10 @@
-use std::{fs, path::PathBuf, process::exit, str::FromStr, thread, time::Duration};
+use std::{fs, iter::Inspect, path::PathBuf, process::exit, str::FromStr, thread, time::Duration};
 
 use arboard::Clipboard;
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
-use inquire::Confirm;
+use inquire::{list_option::ListOption, Confirm};
 use pants_gen::password::PasswordSpec;
-use secrecy::ExposeSecret;
 
 use pants_store::{
     config::internal_config::BaseConfig,
@@ -14,11 +13,13 @@ use pants_store::{
     manager_message::ManagerMessage,
     message::Message,
     output::Output,
+    reads::Reads,
     schema::Schema,
-    store::Store,
+    store::{SecretValue, Store, StoreType, StoredValue},
     vault::manager::VaultManager,
     Password,
 };
+use secrecy::ExposeSecret;
 
 use crate::{client_config::ClientConfig, gen_args};
 
@@ -27,6 +28,43 @@ enum OutputStyle {
     Clipboard,
     None,
     Raw,
+}
+
+impl OutputStyle {
+    fn handle_reads(&self, reads: Reads<Store>) -> anyhow::Result<()> {
+        if reads.data.is_empty() {
+            println!("No data read from vault");
+            return Ok(());
+        }
+        match self {
+            OutputStyle::Clipboard => {
+                let mut clipboard = Clipboard::new()?;
+                let orig = clipboard.get_text().unwrap_or("".to_string());
+                for (key, value) in reads.data.clone().into_iter() {
+                    println!("{key}");
+                    for (ident, item) in value.data {
+                        clipboard.set_text(item.expose_secret().to_string())?;
+
+                        if let Err(_) = inquire::Text::new(&format!(
+                            "Copied `{ident}` to clipboard, hit enter to continue"
+                        ))
+                        .prompt()
+                        {
+                            break;
+                        }
+                    }
+                }
+                clipboard.set_text(orig)?;
+                println!("Resetting clipboard");
+                thread::sleep(Duration::from_secs(1));
+            }
+            OutputStyle::Raw => {
+                println!("{:?}", reads);
+            }
+            OutputStyle::None => {}
+        }
+        Ok(())
+    }
 }
 
 #[derive(Parser)]
@@ -117,14 +155,16 @@ pub enum CLICommands {
 
 #[derive(Subcommand)]
 pub enum EntryStyle {
+    /// dealing with a password alone
     Password {
         name: String,
         // #[command(subcommand)]
         // password: Option<Generate>,
     },
-    UsernamePassword {
-        name: String,
-    },
+    /// dealing with username and password
+    UsernamePassword { name: String },
+    /// the entry is some generic data
+    Generic { name: String },
 }
 
 #[derive(Subcommand)]
@@ -200,48 +240,7 @@ impl CliApp {
         match output {
             Output::Nothing => Ok(()),
             Output::Read(reads) => {
-                if !reads.data.is_empty() {
-                    match output_style {
-                        OutputStyle::Clipboard => {
-                            let mut clipboard = Clipboard::new()?;
-                            let orig = clipboard.get_text().unwrap_or("".to_string());
-                            for (key, value) in reads.data.clone().into_iter() {
-                                println!("{}", key);
-                                match value {
-                                    Store::Password(ref pass) => {
-                                        clipboard.set_text(pass.expose_secret())?;
-                                        println!("  password: <Copied to clipboard>");
-                                        thread::sleep(Duration::from_secs(config.clipboard_time));
-                                    }
-                                    Store::UsernamePassword(ref user, ref pass) => {
-                                        clipboard.set_text(pass.expose_secret())?;
-                                        println!("  username: {}", user.expose_secret());
-                                        println!("  password: <Copied to clipboard>");
-                                        thread::sleep(Duration::from_secs(config.clipboard_time));
-                                    }
-                                    Store::Generic(ref data) => {
-                                        for (k, v) in data {
-                                            clipboard.set_text(v.expose_secret())?;
-                                            println!("  {}:", k);
-                                            thread::sleep(Duration::from_secs(
-                                                config.clipboard_time,
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                            clipboard.set_text(orig)?;
-                            println!("Resetting clipboard");
-                            thread::sleep(Duration::from_secs(1));
-                        }
-                        OutputStyle::Raw => {
-                            println!("{:?}", reads);
-                        }
-                        OutputStyle::None => {}
-                    }
-                } else {
-                    println!("Nothing read from vault");
-                }
+                output_style.handle_reads(reads)?;
                 Ok(())
             }
             Output::List(items) => {
@@ -361,7 +360,7 @@ impl CliApp {
                         vault.into(),
                         schema,
                         name.to_string(),
-                        "password",
+                        &StoreType::Password,
                         spec,
                     ),
                     EntryStyle::UsernamePassword { name } => Self::handle_new(
@@ -369,7 +368,15 @@ impl CliApp {
                         vault.into(),
                         schema,
                         name.to_string(),
-                        "username-password",
+                        &StoreType::UsernamePassword,
+                        spec,
+                    ),
+                    EntryStyle::Generic { name } => Self::handle_new(
+                        confirm_password,
+                        vault.into(),
+                        schema,
+                        name.to_string(),
+                        &StoreType::Generic,
                         spec,
                     ),
                 }
@@ -430,7 +437,9 @@ impl CliApp {
                 ))
             }
             CLICommands::Import { vault, path } => {
+                println!("Readign file");
                 let content = fs::read_to_string(path)?;
+                println!("parsing file");
                 let data = serde_json::from_str(&content)?;
                 let password = Self::get_password("Vault password:")?;
                 Ok(ManagerMessage::VaultMessage(
@@ -449,7 +458,7 @@ impl CliApp {
         vault: String,
         schema: Schema,
         key: String,
-        style: &str,
+        style: &StoreType,
         spec: PasswordSpec,
     ) -> anyhow::Result<ManagerMessage> {
         match schema.get(&key) {
@@ -500,22 +509,43 @@ impl CliApp {
         Ok(password.into())
     }
 
-    fn prompt(repr: &str, spec: PasswordSpec) -> anyhow::Result<Store> {
-        match repr {
-            "password" => Self::get_store_password(spec).map(Store::Password),
-            "username-password" => {
+    fn prompt(ty: &StoreType, spec: PasswordSpec) -> anyhow::Result<Store> {
+        match ty {
+            StoreType::Password => Self::get_store_password(spec).map(Store::password),
+            StoreType::UsernamePassword => {
                 let username_input = inquire::Text::new("Username:")
                     .with_help_message("New username")
                     .prompt();
                 let username = username_input?;
                 let password = Self::get_store_password(spec)?;
-                Ok(Store::UsernamePassword(username.into(), password))
+                Ok(Store::username_password(
+                    StoredValue::new(username),
+                    password,
+                ))
             }
-            _ => Err(Box::new(SchemaError::BadType).into()),
+            StoreType::Generic => {
+                let mut vals = Vec::new();
+                loop {
+                    let ident_input = inquire::Text::new("Name:")
+                        .with_help_message(
+                            "What is the item being stored (e.g. password, username, etc), enter nothing to finish",
+                        )
+                        .prompt()?;
+                    if ident_input.is_empty() {
+                        break;
+                    }
+                    let value_input = inquire::Text::new("Value:")
+                        .with_help_message("The value to store")
+                        .prompt()?;
+                    vals.push((ident_input, StoredValue::new(value_input).into()));
+                }
+
+                Ok(Store::new(StoreType::Generic, vals))
+            }
         }
     }
 
-    fn get_store_password(spec: PasswordSpec) -> anyhow::Result<Password> {
+    fn get_store_password(spec: PasswordSpec) -> anyhow::Result<SecretValue> {
         let generate = Confirm::new("Generate password?")
             .with_default(true)
             .with_help_message("Create a random password or enter manually?")
@@ -523,7 +553,7 @@ impl CliApp {
         match generate {
             Ok(true) => {
                 let password = spec.generate().ok_or(ClientError::BadPasswordSpec)?;
-                Ok(password.into())
+                Ok(StoredValue::new(password).into())
             }
             Ok(false) => {
                 let password_input = inquire::Password::new("Password: ")
@@ -531,7 +561,7 @@ impl CliApp {
                     .with_display_mode(inquire::PasswordDisplayMode::Masked)
                     .prompt();
                 match password_input {
-                    Ok(p) => Ok(p.into()),
+                    Ok(p) => Ok(StoredValue::new(p).into()),
                     Err(_) => Err(Box::new(SchemaError::BadValues).into()),
                 }
             }

@@ -2,9 +2,11 @@ use std::{collections::BTreeMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
+use crate::store::StoreType;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Schema {
-    pub data: BTreeMap<String, String>,
+    pub data: BTreeMap<String, StoreType>,
 }
 
 impl Schema {
@@ -14,11 +16,11 @@ impl Schema {
         }
     }
 
-    pub fn insert(&mut self, key: String, value: String) {
+    pub fn insert(&mut self, key: String, value: StoreType) {
         self.data.insert(key, value);
     }
 
-    pub fn get(&self, key: &str) -> Option<&String> {
+    pub fn get(&self, key: &str) -> Option<&StoreType> {
         self.data.get(key)
     }
 
@@ -38,15 +40,15 @@ impl Schema {
     }
 }
 
-impl From<BTreeMap<String, String>> for Schema {
-    fn from(value: BTreeMap<String, String>) -> Self {
+impl From<BTreeMap<String, StoreType>> for Schema {
+    fn from(value: BTreeMap<String, StoreType>) -> Self {
         Self { data: value }
     }
 }
 
 impl IntoIterator for Schema {
-    type Item = (String, String);
-    type IntoIter = std::collections::btree_map::IntoIter<String, String>;
+    type Item = (String, StoreType);
+    type IntoIter = std::collections::btree_map::IntoIter<String, StoreType>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.data.into_iter()

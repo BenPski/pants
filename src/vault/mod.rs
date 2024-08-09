@@ -110,7 +110,7 @@ impl Vault {
     pub fn schema(&self) -> Schema {
         let mut schema = Schema::new();
         for (key, value) in &self.data {
-            schema.insert(key.to_string(), value.repr());
+            schema.insert(key.to_string(), value.ty);
         }
         schema
     }
