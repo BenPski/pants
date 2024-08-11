@@ -19,16 +19,15 @@ def read_csv(filename):
         for row in csvreader:
             rows.append(row)
     for row in rows:
-        # 'name' for chromium based, 'url' for firefox based
+        # 'name' for chromium based, 'url' for firefox based, for everything else there is panics
         if 'name' in field_headers:
             pos = field_headers['name']
         else:
             pos = field_headers['url']
         name = row[pos]
-        ty = "UsernamePassword"
         username = row[field_headers['username']]
         password = row[field_headers['password']]
-        data[name] = {"ty": ty, "data": [("Username", username), ("Password", password)]}
+        data[name] = {"data": [("Username", username), ("Password", password)]}
     return data
 
 
