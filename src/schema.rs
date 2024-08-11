@@ -16,7 +16,7 @@ impl Schema {
     }
 
     pub fn insert(&mut self, key: String, value: Vec<String>) {
-        self.data.insert(key, value.into());
+        self.data.insert(key, value);
     }
 
     pub fn get(&self, key: &str) -> Option<&Vec<String>> {

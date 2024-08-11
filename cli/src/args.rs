@@ -266,7 +266,7 @@ impl CliApp {
                         let spec = PasswordSpec::from_str(
                             &spec.clone().unwrap_or_else(|| config.password_spec.clone()),
                         )?;
-                        let changes = Self::prompt_update(&fields, &spec)?;
+                        let changes = Self::prompt_update(fields, &spec)?;
                         let password = Self::get_password("Vault password:")?;
                         Ok(ManagerMessage::VaultMessage(
                             vault.into(),
@@ -455,7 +455,7 @@ impl CliApp {
             let mut fields: Vec<FieldChoice> = changes
                 .fields()
                 .into_iter()
-                .map(|s| FieldChoice::Existing(s))
+                .map(FieldChoice::Existing)
                 .collect();
             fields.push(FieldChoice::New);
             fields.push(FieldChoice::Done);
