@@ -100,14 +100,16 @@ pub enum CLICommands {
     /// export the contents of the vault
     Export {
         /// name of the vault
+        #[arg(default_value = "default")]
         vault: String,
     },
     /// import a file into a vault
     Import {
-        /// name of the vault
-        vault: String,
         /// path to the file
         path: PathBuf,
+        /// name of the vault
+        #[arg(default_value = "default")]
+        vault: String,
     },
     /// generate password
     Gen(gen_args::CliArgs),
