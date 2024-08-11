@@ -261,7 +261,7 @@ impl CliApp {
             CLICommands::Update { vault, key, spec } => {
                 let schema = Self::get_schema(manager, vault.into())?;
                 match schema.get(key) {
-                    None => Err(Box::new(CommunicationError::NoEntry).into()),
+                    None => Err(CommunicationError::NoEntry.into()),
                     Some(fields) => {
                         let spec = PasswordSpec::from_str(
                             &spec.clone().unwrap_or_else(|| config.password_spec.clone()),
@@ -299,15 +299,22 @@ impl CliApp {
                 }
             }
             CLICommands::Add { key, vault, spec } => {
-                let spec =
-                    PasswordSpec::from_str(&spec.clone().unwrap_or(config.password_spec.clone()))?;
+                let schema = Self::get_schema(manager, vault.into())?;
+                match schema.get(&key) {
+                    None => {
+                        let spec = PasswordSpec::from_str(
+                            &spec.clone().unwrap_or(config.password_spec.clone()),
+                        )?;
 
-                let password = Self::password_prompt_add(manager, vault)?;
-                let store = Self::prompt_add(&spec)?;
-                Ok(ManagerMessage::VaultMessage(
-                    vault.into(),
-                    Message::Update(password, key.into(), store),
-                ))
+                        let password = Self::password_prompt_add(manager, vault)?;
+                        let store = Self::prompt_add(&spec)?;
+                        Ok(ManagerMessage::VaultMessage(
+                            vault.into(),
+                            Message::Update(password, key.into(), store),
+                        ))
+                    }
+                    Some(_) => Err(CommunicationError::ExistingEntry.into()),
+                }
             }
             CLICommands::Rotate { vault } => {
                 let password = Self::get_password("Vault password:")?;
