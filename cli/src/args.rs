@@ -1,70 +1,29 @@
-use std::{fs, path::PathBuf, process::exit, str::FromStr, thread, time::Duration};
+use std::{fs, path::PathBuf, process::exit, str::FromStr};
 
-use arboard::Clipboard;
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use pants_gen::password::PasswordSpec;
 
+use enum_iterator::all;
 use pants_store::{
     config::internal_config::BaseConfig,
-    errors::{ClientError, CommunicationError, SchemaError},
+    errors::{ClientError, CommunicationError},
     info::Info,
     manager_message::ManagerMessage,
     message::Message,
     output::Output,
-    reads::Reads,
     schema::Schema,
-    store::{SecretValue, Store, StoreType, StoredValue},
+    store::{Changes, SecretValue, Store, StoredValue},
     vault::manager::VaultManager,
     Password,
 };
-use secrecy::ExposeSecret;
 
-use crate::{client_config::ClientConfig, gen_args};
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-enum OutputStyle {
-    Clipboard,
-    None,
-    Raw,
-}
-
-impl OutputStyle {
-    fn handle_reads(&self, reads: Reads<Store>) -> anyhow::Result<()> {
-        if reads.data.is_empty() {
-            println!("No data read from vault");
-            return Ok(());
-        }
-        match self {
-            OutputStyle::Clipboard => {
-                let mut clipboard = Clipboard::new()?;
-                let orig = clipboard.get_text().unwrap_or("".to_string());
-                for (key, value) in reads.data.clone().into_iter() {
-                    for (ident, item) in value.data {
-                        clipboard.set_text(item.expose_secret().to_string())?;
-
-                        if inquire::Text::new(&format!(
-                            "Copied `{key}-{ident}` to clipboard, hit enter to continue"
-                        ))
-                        .prompt()
-                        .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-                clipboard.set_text(orig)?;
-                println!("Resetting clipboard");
-                thread::sleep(Duration::from_secs(1));
-            }
-            OutputStyle::Raw => {
-                println!("{:?}", reads);
-            }
-            OutputStyle::None => {}
-        }
-        Ok(())
-    }
-}
+use crate::{
+    choices::{FieldChoice, NewEntry, UpdateEntry},
+    client_config::ClientConfig,
+    gen_args,
+    output::OutputStyle,
+};
 
 #[derive(Parser)]
 pub struct CliArgs {
@@ -81,27 +40,30 @@ pub enum CLICommands {
     New { name: String },
     /// create new entry
     Add {
+        /// the name of the entry to add
+        key: String,
         /// name of the vault
+        #[arg(default_value = "default")]
         vault: String,
-        #[command(subcommand)]
-        style: EntryStyle,
         /// specify a password spec string to be used over the configured one
         #[arg(long)]
         spec: Option<String>,
     },
     /// lookup the given entry
     Get {
-        /// name of the vault
-        vault: String,
         /// name of the entry
         key: String,
+        /// name of the vault
+        #[arg(default_value = "default")]
+        vault: String,
     },
     /// update the entry
     Update {
-        /// name of the vault
-        vault: String,
         /// name of the entry
         key: String,
+        /// name of the vault
+        #[arg(default_value = "default")]
+        vault: String,
         // #[command(subcommand)]
         // password: Option<Generate>,
         /// specify a password spec string to be used over the configured one
@@ -110,10 +72,11 @@ pub enum CLICommands {
     },
     /// delete a vault/entry
     Delete {
-        /// name of the vault
-        vault: String,
         /// name of the entry
         key: Option<String>,
+        /// name of the vault
+        #[arg(default_value = "default")]
+        vault: String,
     },
     /// list the vaults/entries
     List {
@@ -214,7 +177,7 @@ impl CliApp {
                 match Self::process(&self.config, &self.args.output, self.interface, command) {
                     Ok(()) => (),
                     Err(e) => {
-                        println!("Encountered error: {}", e);
+                        println!("Error: {}", e);
                         exit(1)
                     }
                 }
@@ -248,7 +211,7 @@ impl CliApp {
                 } else {
                     println!("Available entries:");
                     for item in items {
-                        println!("- {}", item);
+                        println!(" - {}", item);
                     }
                 }
                 Ok(())
@@ -261,16 +224,7 @@ impl CliApp {
                 if data.data.is_empty() {
                     println!("No vaults created yet");
                 } else {
-                    for (vault, schema) in data {
-                        if schema.is_empty() {
-                            println!("{}: no entries", vault);
-                        } else {
-                            println!("{}:", vault);
-                            for (key, value) in schema.data.iter() {
-                                println!("  {}: {}", key, value);
-                            }
-                        }
-                    }
+                    println!("{data}");
                 }
                 Ok(())
             }
@@ -308,15 +262,15 @@ impl CliApp {
                 let schema = Self::get_schema(manager, vault.into())?;
                 match schema.get(key) {
                     None => Err(Box::new(CommunicationError::NoEntry).into()),
-                    Some(style) => {
+                    Some(fields) => {
                         let spec = PasswordSpec::from_str(
                             &spec.clone().unwrap_or_else(|| config.password_spec.clone()),
                         )?;
-                        let value = Self::prompt(style, spec)?;
+                        let changes = Self::prompt_update(&fields, &spec)?;
                         let password = Self::get_password("Vault password:")?;
                         Ok(ManagerMessage::VaultMessage(
                             vault.into(),
-                            Message::Update(password, key.to_string(), value),
+                            Message::Change(password, key.to_string(), changes),
                         ))
                     }
                 }
@@ -344,42 +298,16 @@ impl CliApp {
                     }
                 }
             }
-            CLICommands::Add { vault, style, spec } => {
-                let info = Self::get_info(manager)?;
-                let schema = info.get(vault).cloned().unwrap_or(Schema::default());
-                let new_vault = !info.data.contains_key(vault);
-                let confirm_password = new_vault || schema.is_empty();
-                if new_vault {
-                    manager.receive(ManagerMessage::NewVault(vault.into()))?;
-                }
+            CLICommands::Add { key, vault, spec } => {
                 let spec =
                     PasswordSpec::from_str(&spec.clone().unwrap_or(config.password_spec.clone()))?;
-                match style {
-                    EntryStyle::Password { name } => Self::handle_new(
-                        confirm_password,
-                        vault.into(),
-                        schema,
-                        name.to_string(),
-                        &StoreType::Password,
-                        spec,
-                    ),
-                    EntryStyle::UsernamePassword { name } => Self::handle_new(
-                        confirm_password,
-                        vault.into(),
-                        schema,
-                        name.to_string(),
-                        &StoreType::UsernamePassword,
-                        spec,
-                    ),
-                    EntryStyle::Generic { name } => Self::handle_new(
-                        confirm_password,
-                        vault.into(),
-                        schema,
-                        name.to_string(),
-                        &StoreType::Generic,
-                        spec,
-                    ),
-                }
+
+                let password = Self::password_prompt_add(manager, vault)?;
+                let store = Self::prompt_add(&spec)?;
+                Ok(ManagerMessage::VaultMessage(
+                    vault.into(),
+                    Message::Update(password, key.into(), store),
+                ))
             }
             CLICommands::Rotate { vault } => {
                 let password = Self::get_password("Vault password:")?;
@@ -462,29 +390,114 @@ impl CliApp {
         }
     }
 
-    fn handle_new(
-        new_vault: bool,
-        vault: String,
-        schema: Schema,
-        key: String,
-        style: &StoreType,
-        spec: PasswordSpec,
-    ) -> anyhow::Result<ManagerMessage> {
-        match schema.get(&key) {
-            None => {
-                let value = Self::prompt(style, spec)?;
-                let password = if new_vault {
-                    Self::get_password_confirm("New vault password:")?
-                } else {
-                    Self::get_password("Vault password:")?
-                };
-                Ok(ManagerMessage::VaultMessage(
-                    vault,
-                    Message::Update(password, key, value),
-                ))
-            }
-            Some(_) => Err(Box::new(CommunicationError::ExistingEntry).into()),
+    /// prompt for a password and handle the case that the user needs to create
+    /// a new vault
+    fn password_prompt_add(manager: &mut VaultManager, vault: &str) -> anyhow::Result<Password> {
+        let info = Self::get_info(manager)?;
+        let schema = info.get(vault).cloned().unwrap_or(Schema::default());
+        let new_vault = !info.data.contains_key(vault);
+        let confirm_password = new_vault || schema.is_empty();
+        if new_vault {
+            manager.receive(ManagerMessage::NewVault(vault.into()))?;
         }
+        if confirm_password {
+            let ans =
+                inquire::Confirm::new(&format!("Do you want to create new vault: `{vault}`?"))
+                    .prompt()?;
+            if ans {
+                Self::get_password_confirm(&format!("Password for {vault}:"))
+            } else {
+                Err(ClientError::NotCreatingVault.into())
+            }
+        } else {
+            Self::get_password(&format!("Password for {vault}:"))
+        }
+    }
+
+    /// Prompt for a new entry into a vault
+    fn prompt_add(spec: &PasswordSpec) -> anyhow::Result<Store> {
+        let mut store = Store::default();
+        loop {
+            match Self::prompt_new_entry(spec)? {
+                None => break,
+                Some((k, v)) => store.insert(&k, v),
+            }
+        }
+        Ok(store)
+    }
+
+    fn prompt_new_entry(spec: &PasswordSpec) -> anyhow::Result<Option<(String, SecretValue)>> {
+        let choice = inquire::Select::new("Type of entry", all::<NewEntry>().collect()).prompt()?;
+        match choice {
+            NewEntry::Done => Ok(None),
+            NewEntry::Generated => {
+                let ident_input = inquire::Text::new("Name of field:")
+                    .with_help_message("The type of the field (username, password, etc)")
+                    .prompt()?;
+                let value = spec.generate().ok_or(ClientError::BadPasswordSpec)?;
+                Ok(Some((ident_input, StoredValue::new(value).into())))
+            }
+            NewEntry::Manual => {
+                let ident_input = inquire::Text::new("Name of field:")
+                    .with_help_message("The type of the field (username, password, etc)")
+                    .prompt()?;
+                let value_input = inquire::Text::new("Value for field:")
+                    .with_help_message("The actual value to be stored.")
+                    .prompt()?;
+                Ok(Some((ident_input, StoredValue::new(value_input).into())))
+            }
+        }
+    }
+
+    fn prompt_update(orig: &[String], spec: &PasswordSpec) -> anyhow::Result<Changes> {
+        let mut changes = Changes::new(orig);
+        loop {
+            let mut fields: Vec<FieldChoice> = changes
+                .fields()
+                .into_iter()
+                .map(|s| FieldChoice::Existing(s))
+                .collect();
+            fields.push(FieldChoice::New);
+            fields.push(FieldChoice::Done);
+            let field_choice = inquire::Select::new("Field to update:", fields).prompt()?;
+            match field_choice {
+                FieldChoice::Done => break,
+                FieldChoice::New => {
+                    if let Some((k, v)) = Self::prompt_new_entry(spec)? {
+                        changes.insert(&k, v);
+                    }
+                }
+                FieldChoice::Existing(s) => {
+                    let choice = inquire::Select::new(
+                        &format!("How to update {s}:"),
+                        all::<UpdateEntry>().collect(),
+                    )
+                    .prompt()?;
+                    match choice {
+                        UpdateEntry::Cancel => {}
+                        UpdateEntry::Delete => {
+                            changes.remove(&s);
+                        }
+                        UpdateEntry::Manual => {
+                            let value_input = inquire::Text::new("New value:").prompt()?;
+                            changes.insert(&s, StoredValue::new(value_input).into());
+                        }
+                        UpdateEntry::Generate => {
+                            let value = spec.generate().ok_or(ClientError::BadPasswordSpec)?;
+                            changes.insert(&s, StoredValue::new(value).into())
+                        }
+                        UpdateEntry::Swap => {
+                            let choices =
+                                changes.fields().into_iter().filter(|k| *k != s).collect();
+                            let value = inquire::Select::new("Swap with:", choices).prompt()?;
+                            changes.swap(&s, &value);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(changes)
     }
 
     fn get_schema(manager: &mut VaultManager, vault: String) -> anyhow::Result<Schema> {
@@ -516,65 +529,5 @@ impl CliApp {
             .with_display_mode(inquire::PasswordDisplayMode::Masked)
             .prompt()?;
         Ok(password.into())
-    }
-
-    fn prompt(ty: &StoreType, spec: PasswordSpec) -> anyhow::Result<Store> {
-        match ty {
-            StoreType::Password => Self::get_store_password(spec).map(Store::password),
-            StoreType::UsernamePassword => {
-                let username_input = inquire::Text::new("Username:")
-                    .with_help_message("New username")
-                    .prompt();
-                let username = username_input?;
-                let password = Self::get_store_password(spec)?;
-                Ok(Store::username_password(
-                    StoredValue::new(username),
-                    password,
-                ))
-            }
-            StoreType::Generic => {
-                let mut vals = Vec::new();
-                loop {
-                    let ident_input = inquire::Text::new("Name:")
-                        .with_help_message(
-                            "What is the item being stored (e.g. password, username, etc), enter nothing to finish",
-                        )
-                        .prompt()?;
-                    if ident_input.is_empty() {
-                        break;
-                    }
-                    let value_input = inquire::Text::new("Value:")
-                        .with_help_message("The value to store")
-                        .prompt()?;
-                    vals.push((ident_input, StoredValue::new(value_input).into()));
-                }
-
-                Ok(Store::new(StoreType::Generic, vals))
-            }
-        }
-    }
-
-    fn get_store_password(spec: PasswordSpec) -> anyhow::Result<SecretValue> {
-        let generate = inquire::Confirm::new("Generate password?")
-            .with_default(true)
-            .with_help_message("Create a random password or enter manually?")
-            .prompt();
-        match generate {
-            Ok(true) => {
-                let password = spec.generate().ok_or(ClientError::BadPasswordSpec)?;
-                Ok(StoredValue::new(password).into())
-            }
-            Ok(false) => {
-                let password_input = inquire::Password::new("Password: ")
-                    .with_display_toggle_enabled()
-                    .with_display_mode(inquire::PasswordDisplayMode::Masked)
-                    .prompt();
-                match password_input {
-                    Ok(p) => Ok(StoredValue::new(p).into()),
-                    Err(_) => Err(Box::new(SchemaError::BadValues).into()),
-                }
-            }
-            Err(_) => Err(Box::new(SchemaError::BadValues).into()),
-        }
     }
 }

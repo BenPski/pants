@@ -44,6 +44,10 @@ pub enum CommunicationError {
 pub enum ClientError {
     #[error("Contraints for the password spec could not be met")]
     BadPasswordSpec,
+    #[error("Not creating a new vault")]
+    NotCreatingVault,
+    #[error("Expected to read a value, but got nothing")]
+    ReadNothing,
 }
 
 #[derive(Debug, Error)]

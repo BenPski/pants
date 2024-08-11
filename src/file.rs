@@ -216,6 +216,7 @@ impl Name for SchemaFile {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct SaveDir {
     base_path: PathBuf,
 }

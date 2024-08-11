@@ -20,3 +20,4 @@ pants-store.workspace = true
 secrecy.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+enum-iterator.workspace = true

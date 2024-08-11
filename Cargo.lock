@@ -2632,6 +2632,7 @@ dependencies = [
  "arboard",
  "clap",
  "clap_complete",
+ "enum-iterator",
  "figment",
  "inquire",
  "once_cell",
