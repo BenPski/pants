@@ -34,6 +34,8 @@ pub enum UpdateEntry {
     Delete,
     /// swap current entry with another one
     Swap,
+    /// move the entry to be at the position of another
+    Move,
     /// do nothing
     Cancel,
 }
@@ -45,6 +47,7 @@ impl Display for UpdateEntry {
             Self::Generate => write!(f, "Randomize value"),
             Self::Manual => write!(f, "Manually enter value"),
             Self::Swap => write!(f, "Swap position with another entry"),
+            Self::Move => write!(f, "Move position to another entry"),
             Self::Cancel => write!(f, "Cancel"),
         }
     }

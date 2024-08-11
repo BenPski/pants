@@ -486,9 +486,13 @@ impl CliApp {
                             let value = spec.generate().ok_or(ClientError::BadPasswordSpec)?;
                             changes.insert(&s, StoredValue::new(value).into())
                         }
+                        UpdateEntry::Move => {
+                            let choices = changes.fields();
+                            let value = inquire::Select::new("Move to:", choices).prompt()?;
+                            changes.move_to(&s, &value);
+                        }
                         UpdateEntry::Swap => {
-                            let choices =
-                                changes.fields().into_iter().filter(|k| *k != s).collect();
+                            let choices = changes.fields();
                             let value = inquire::Select::new("Swap with:", choices).prompt()?;
                             changes.swap(&s, &value);
                         }

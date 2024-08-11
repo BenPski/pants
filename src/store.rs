@@ -180,4 +180,19 @@ impl Changes {
         }
         self.data.swap(pos1, pos2);
     }
+    pub fn move_to(&mut self, first: &str, second: &str) {
+        let mut pos1 = 0;
+        let mut pos2 = 0;
+        for (i, (k, _)) in self.data.iter().enumerate() {
+            if k == first {
+                pos1 = i;
+            }
+            if k == second {
+                pos2 = i;
+            }
+        }
+        let temp = self.data[pos1].clone();
+        self.data.remove(pos1);
+        self.data.insert(pos2, temp);
+    }
 }
