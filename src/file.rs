@@ -284,7 +284,7 @@ impl SaveDir {
         Data: Serialize + Deserialize<'de>,
     {
         let mut path = self.base_path.clone();
-        path.push(&TimestampedFile::name());
+        path.push(TimestampedFile::name());
         path.push(format!("{}-*.json", TimestampedFile::name()));
         let mut paths = vec![];
         for entry in glob(path.to_str().unwrap())
@@ -309,7 +309,7 @@ impl SaveDir {
         Data: Serialize + Deserialize<'de>,
     {
         let mut path = self.base_path.clone();
-        path.push(&TimestampedFile::name());
+        path.push(TimestampedFile::name());
         path.push(format!("{}-*.json", TimestampedFile::name()));
         glob(path.to_str().unwrap())
             .expect("Failed to read glob pattern")

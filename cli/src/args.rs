@@ -279,7 +279,7 @@ impl CliApp {
                             &spec.clone().unwrap_or_else(|| config.password_spec.clone()),
                         )?;
                         let changes = Self::prompt_update(fields, &spec)?;
-                        if changes.unchanged(&fields) {
+                        if changes.unchanged(fields) {
                             return Err(ClientError::NoChanges.into());
                         }
                         let password = Self::get_password("Vault password:")?;
@@ -292,8 +292,8 @@ impl CliApp {
             }
             CLICommands::Rename { from, to, vault } => {
                 let schema = Self::get_schema(manager, vault.into())?;
-                let orig = schema.get(&from);
-                let new = schema.get(&to);
+                let orig = schema.get(from);
+                let new = schema.get(to);
                 match (orig, new) {
                     (Some(_), None) => {
                         let password = Self::get_password("Vault password:")?;
@@ -330,7 +330,7 @@ impl CliApp {
             }
             CLICommands::Add { key, vault, spec } => {
                 let schema = Self::get_schema(manager, vault.into())?;
-                match schema.get(&key) {
+                match schema.get(key) {
                     None => {
                         let spec = PasswordSpec::from_str(
                             &spec.clone().unwrap_or(config.password_spec.clone()),
