@@ -116,9 +116,21 @@ impl VaultHandler {
                     key,
                     value: to_store,
                 };
-                let mut interface = Self::load_interface(password, save_dir)?;
                 let reads = interface.transaction(command.into())?;
                 Ok(reads.into())
+            }
+            Message::Rename(password, from, to) => {
+                let mut interface = Self::load_interface(password, save_dir)?;
+                let read = Command::Read { key: from.clone() };
+                let data = interface.transaction(read.into())?;
+                let val = data.data.get(&from).ok_or(ClientError::ReadNothing)?;
+                let delete = Command::Delete { key: from };
+                let create = Command::Update {
+                    key: to,
+                    value: val.clone(),
+                };
+                let _ = interface.transaction(vec![delete, create].into())?;
+                Ok(().into())
             }
             Message::Delete(password, key) => {
                 let command = Command::Delete { key };

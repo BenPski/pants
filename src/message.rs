@@ -16,6 +16,7 @@ pub enum Message {
     Backup(Password),
     Rotate(Password, Password),
     Restore(Password, Password, BackupFile),
+    Rename(Password, String, String),
     Export(Password),
     Import(Password, HashMap<String, Store>),
     Schema,

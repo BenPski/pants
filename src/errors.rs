@@ -48,6 +48,10 @@ pub enum ClientError {
     NotCreatingVault,
     #[error("Expected to read a value, but got nothing")]
     ReadNothing,
+    #[error("No changes made")]
+    NoChanges,
+    #[error("Couldn't rename the entry")]
+    CantRename,
 }
 
 #[derive(Debug, Error)]

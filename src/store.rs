@@ -195,4 +195,15 @@ impl Changes {
         self.data.remove(pos1);
         self.data.insert(pos2, temp);
     }
+
+    pub fn unchanged(&self, fields: &[String]) -> bool {
+        let mut curr = Vec::new();
+        for (k, v) in &self.data {
+            if v.is_some() {
+                return true;
+            }
+            curr.push(k.to_string());
+        }
+        curr == fields
+    }
 }

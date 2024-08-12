@@ -78,6 +78,16 @@ pub enum CLICommands {
         #[arg(default_value = "default")]
         vault: String,
     },
+    /// rename an entry
+    Rename {
+        /// name of the entry
+        from: String,
+        /// new name of the entry
+        to: String,
+        /// name of the vault
+        #[arg(default_value = "default")]
+        vault: String,
+    },
     /// list the vaults/entries
     List {
         /// name of vault to list entries of
@@ -269,12 +279,30 @@ impl CliApp {
                             &spec.clone().unwrap_or_else(|| config.password_spec.clone()),
                         )?;
                         let changes = Self::prompt_update(fields, &spec)?;
+                        if changes.unchanged(&fields) {
+                            return Err(ClientError::NoChanges.into());
+                        }
                         let password = Self::get_password("Vault password:")?;
                         Ok(ManagerMessage::VaultMessage(
                             vault.into(),
                             Message::Change(password, key.to_string(), changes),
                         ))
                     }
+                }
+            }
+            CLICommands::Rename { from, to, vault } => {
+                let schema = Self::get_schema(manager, vault.into())?;
+                let orig = schema.get(&from);
+                let new = schema.get(&to);
+                match (orig, new) {
+                    (Some(_), None) => {
+                        let password = Self::get_password("Vault password:")?;
+                        Ok(ManagerMessage::VaultMessage(
+                            vault.into(),
+                            Message::Rename(password, from.into(), to.into()),
+                        ))
+                    }
+                    _ => Err(ClientError::CantRename.into()),
                 }
             }
             CLICommands::Delete { vault, key } => {
