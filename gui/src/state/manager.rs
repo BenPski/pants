@@ -369,7 +369,7 @@ impl Application for ManagerState {
                 connection::Event::ReceiveError(e) => {
                     self.internal_state = vec![];
                     self.temp_message = TempMessage::default();
-                    self.notice = Some(format!("Encountered an error: {}", e));
+                    self.notice = Some(format!("Error: {}", e));
                     return close_popup();
                 }
             },

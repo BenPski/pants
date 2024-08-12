@@ -1,10 +1,11 @@
 use std::{collections::BTreeMap, fmt::Display};
 
+use boring_derive::From;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, From)]
 pub struct Schema {
-    pub data: BTreeMap<String, String>,
+    pub data: BTreeMap<String, Vec<String>>,
 }
 
 impl Schema {
@@ -14,11 +15,11 @@ impl Schema {
         }
     }
 
-    pub fn insert(&mut self, key: String, value: String) {
+    pub fn insert(&mut self, key: String, value: Vec<String>) {
         self.data.insert(key, value);
     }
 
-    pub fn get(&self, key: &str) -> Option<&String> {
+    pub fn get(&self, key: &str) -> Option<&Vec<String>> {
         self.data.get(key)
     }
 
@@ -33,20 +34,14 @@ impl Schema {
     pub fn all_info(self) -> Vec<String> {
         self.data
             .into_iter()
-            .map(|(key, value)| format!("{}: {}", key, value))
+            .map(|(key, value)| format!("{key}: {value:?}"))
             .collect()
     }
 }
 
-impl From<BTreeMap<String, String>> for Schema {
-    fn from(value: BTreeMap<String, String>) -> Self {
-        Self { data: value }
-    }
-}
-
 impl IntoIterator for Schema {
-    type Item = (String, String);
-    type IntoIter = std::collections::btree_map::IntoIter<String, String>;
+    type Item = (String, Vec<String>);
+    type IntoIter = std::collections::btree_map::IntoIter<String, Vec<String>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.data.into_iter()
@@ -56,7 +51,10 @@ impl IntoIterator for Schema {
 impl Display for Schema {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (key, value) in self.data.iter() {
-            writeln!(f, "{}: {}", key, value)?;
+            writeln!(f, "{key}:")?;
+            for field in value {
+                writeln!(f, " - {field}")?;
+            }
         }
         Ok(())
     }

@@ -8,7 +8,7 @@ use rand::rngs::OsRng;
 use crate::{
     command::{Command, Commands},
     config::vault_config::VaultConfig,
-    errors::ManagerError,
+    errors::{ClientError, ManagerError},
     file::{BackupFile, ProjectFile, RecordFile, SaveDir, SchemaFile, VaultFile},
     message::Message,
     output::Output,
@@ -105,6 +105,33 @@ impl VaultHandler {
                 let reads = interface.transaction(command.into())?;
                 Ok(reads.into())
             }
+            Message::Change(password, key, value) => {
+                let command = Command::Read { key: key.clone() };
+                let mut interface = Self::load_interface(password.clone(), save_dir.clone())?;
+                let reads = interface.transaction(command.into())?;
+                let read = reads.data.get(&key).ok_or(ClientError::ReadNothing)?;
+                let to_store = read.update(value);
+
+                let command = Command::Update {
+                    key,
+                    value: to_store,
+                };
+                let reads = interface.transaction(command.into())?;
+                Ok(reads.into())
+            }
+            Message::Rename(password, from, to) => {
+                let mut interface = Self::load_interface(password, save_dir)?;
+                let read = Command::Read { key: from.clone() };
+                let data = interface.transaction(read.into())?;
+                let val = data.data.get(&from).ok_or(ClientError::ReadNothing)?;
+                let delete = Command::Delete { key: from };
+                let create = Command::Update {
+                    key: to,
+                    value: val.clone(),
+                };
+                let _ = interface.transaction(vec![delete, create].into())?;
+                Ok(().into())
+            }
             Message::Delete(password, key) => {
                 let command = Command::Delete { key };
                 let mut interface = Self::load_interface(password, save_dir)?;
@@ -143,7 +170,21 @@ impl VaultHandler {
                 interface.save()?;
                 Ok(Output::Backup(new_backup))
             }
-            _ => panic!("Should have been caught by handler"),
+            Message::Export(password) => {
+                let interface = Self::load_interface(password, save_dir)?;
+                let data = interface.vault.export()?;
+                Ok(Output::Content(data))
+            }
+            Message::Import(password, data) => {
+                let mut interface = Self::load_interface(password, save_dir)?;
+                let commands: Vec<Command> = data
+                    .into_iter()
+                    .map(|(k, v)| Command::Update { key: k, value: v })
+                    .collect();
+                interface.transaction(commands.into())?;
+                Ok(Output::Nothing)
+            }
+            Message::Schema | Message::BackupList => panic!("Should have been caught by handler"),
         }
     }
 

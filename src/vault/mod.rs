@@ -21,19 +21,6 @@ pub struct Vault {
     data: BTreeMap<String, Store>,
 }
 
-// impl Serialize for Vault {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::Serializer,
-//     {
-//         let mut map = BTreeMap::new();
-//         for (k, v) in &self.data {
-//             map.insert(k, v.expose());
-//         }
-//         map.serialize(serializer)
-//     }
-// }
-
 impl Default for Vault {
     fn default() -> Self {
         Self::new()
@@ -110,8 +97,15 @@ impl Vault {
     pub fn schema(&self) -> Schema {
         let mut schema = Schema::new();
         for (key, value) in &self.data {
-            schema.insert(key.to_string(), value.repr());
+            schema.insert(
+                key.to_string(),
+                value.data.iter().map(|(x, _)| x.to_string()).collect(),
+            );
         }
         schema
+    }
+
+    pub fn export(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(&self.data)
     }
 }

@@ -1,140 +1,209 @@
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
-use enum_iterator::{all, Sequence};
-use secrecy::{ExposeSecret, Secret};
-use serde::{ser::SerializeTupleVariant, Deserialize, Serialize};
+use boring_derive::From;
+use enum_iterator::Sequence;
+use secrecy::{CloneableSecret, DebugSecret, Secret, SerializableSecret, Zeroize};
+use serde::{Deserialize, Serialize};
 
-pub type StoreHash = HashMap<String, Secret<String>>;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence)]
-pub enum StoreChoice {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Serialize, Deserialize)]
+pub enum StoreType {
     Password,
     UsernamePassword,
+    Generic,
 }
 
-impl Display for StoreChoice {
+#[derive(Clone, Serialize, Deserialize, From)]
+pub struct StoredValue(String);
+
+impl StoredValue {
+    pub fn new(s: impl Into<String>) -> Self {
+        StoredValue(s.into())
+    }
+}
+
+impl Display for StoredValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            StoreChoice::Password => write!(f, "Password"),
-            StoreChoice::UsernamePassword => write!(f, "Username/Password"),
-        }
+        write!(f, "{}", self.0)
     }
 }
 
-impl Default for StoreChoice {
-    fn default() -> Self {
-        Self::UsernamePassword
+impl Zeroize for StoredValue {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
     }
 }
 
-impl StoreChoice {
-    pub fn convert(&self, data: &StoreHash) -> Option<Store> {
-        match self {
-            Self::Password => {
-                let p = data.get("password")?;
-                Some(Store::Password(p.clone()))
-            }
-            Self::UsernamePassword => {
-                let p = data.get("password")?;
-                let u = data.get("username")?;
-                Some(Store::UsernamePassword(u.clone(), p.clone()))
-            }
-        }
-    }
+impl CloneableSecret for StoredValue {}
+impl DebugSecret for StoredValue {}
+// need to be able to serialize for the general encryption
+impl SerializableSecret for StoredValue {}
 
-    pub fn convert_default(&self) -> Store {
-        match self {
-            Self::Password => Store::Password(String::new().into()),
-            Self::UsernamePassword => Store::UsernamePassword(
-                String::new().into(),
-                String::new().into(),
-                // StoreValue::Secret(String::new().into()),
-            ),
-        }
-    }
+pub type SecretValue = Secret<StoredValue>;
 
-    pub fn all() -> Vec<StoreChoice> {
-        all::<StoreChoice>().collect()
-    }
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct Store {
+    // pub ty: StoreType,
+    pub data: Vec<(String, SecretValue)>,
 }
-
-#[derive(Debug, Clone, Deserialize)]
-pub enum Store {
-    Password(Secret<String>),
-    UsernamePassword(Secret<String>, Secret<String>),
-}
-
-impl Serialize for Store {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Self::Password(p) => {
-                let mut state = serializer.serialize_tuple_variant("Store", 0, "Password", 1)?;
-                state.serialize_field(p.expose_secret())?;
-                state.end()
-            }
-            Self::UsernamePassword(u, p) => {
-                let mut state =
-                    serializer.serialize_tuple_variant("Store", 1, "UsernamePassword", 2)?;
-                state.serialize_field(u.expose_secret())?;
-                state.serialize_field(p.expose_secret())?;
-                state.end()
-            }
-        }
-    }
-}
-
-// impl Display for Store {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             Self::Password(p) => write!(f, "{}", p),
-//             Self::UsernamePassword(username, password) => write!(f, "{}: {}", username, password),
-//         }
-//     }
-// }
 
 impl Store {
-    // how to represent the type in the schema
-    pub fn repr(&self) -> String {
-        match self {
-            Self::Password(_) => "password".to_string(),
-            Self::UsernamePassword(_, _) => "username-password".to_string(),
+    // some convenience things
+    pub fn password(pass: impl Into<SecretValue>) -> Self {
+        Self {
+            // ty: StoreType::Password,
+            data: vec![("Password".into(), pass.into())],
+        }
+    }
+    pub fn username_password(
+        username: impl Into<SecretValue>,
+        pass: impl Into<SecretValue>,
+    ) -> Self {
+        Self {
+            // ty: StoreType::UsernamePassword,
+            data: vec![
+                ("Username".into(), username.into()),
+                ("Password".into(), pass.into()),
+            ],
+        }
+    }
+    pub fn new(data: impl Into<Vec<(String, SecretValue)>>) -> Self {
+        Self {
+            // ty,
+            data: data.into(),
         }
     }
 
-    pub fn split(&self) -> (StoreChoice, StoreHash) {
-        match self {
-            Self::Password(p) => {
-                let mut map = HashMap::new();
-                map.insert("password".to_string(), p.clone());
-                (StoreChoice::Password, map)
-            }
-            Self::UsernamePassword(u, p) => {
-                let mut map = HashMap::new();
-                map.insert("password".to_string(), p.clone());
-                map.insert("username".to_string(), u.clone());
-                (StoreChoice::UsernamePassword, map)
-            }
+    pub fn insert(&mut self, key: &str, value: SecretValue) {
+        if let Some(v) = self.get_mut(key) {
+            *v = value
+        } else {
+            self.data.push((key.into(), value));
         }
     }
 
-    pub fn choice(&self) -> StoreChoice {
-        self.split().0
+    pub fn get(&self, key: &str) -> Option<&SecretValue> {
+        for (k, v) in &self.data {
+            if k == key {
+                return Some(v);
+            }
+        }
+        None
     }
 
-    pub fn as_hash(&self) -> StoreHash {
-        self.split().1
+    pub fn get_mut(&mut self, key: &str) -> Option<&mut SecretValue> {
+        for (k, v) in self.data.iter_mut() {
+            if k == key {
+                return Some(v);
+            }
+        }
+        None
     }
 
-    // pub fn expose(&self) -> StoreOpen {
-    //     match self {
-    //         Self::Password(StoreValue::Secret(p)) => StoreOpen::Password(p.expose_secret().into()),
-    //         Self::UsernamePassword(StoreValue::Value(u), StoreValue::Secret(p)) => {
-    //             StoreOpen::UsernamePassword(u.into(), p.expose_secret().into())
+    pub fn remove(&mut self, key: &str) -> Option<(String, SecretValue)> {
+        let pos = self.data.iter().position(|(k, _)| k == key)?;
+        Some(self.data.remove(pos))
+    }
+
+    pub fn join(&mut self, extension: Store) {
+        for (k, v) in extension.data {
+            self.insert(&k, v);
+        }
+    }
+
+    pub fn update(&self, changes: Changes) -> Self {
+        let mut new = Self::default();
+        for (k, v) in changes.data {
+            let value = v.or_else(|| self.get(&k).cloned());
+            if let Some(value) = value {
+                new.insert(&k, value);
+            }
+        }
+        new
+    }
+}
+
+/// represents the changes during an update to the [Store]
+#[derive(Debug, Clone)]
+pub struct Changes {
+    data: Vec<(String, Option<SecretValue>)>,
+}
+
+impl Changes {
+    pub fn new(fields: &[String]) -> Self {
+        let data = fields.iter().map(|s| (s.into(), None)).collect();
+        Self { data }
+    }
+
+    pub fn fields(&self) -> Vec<String> {
+        self.data.iter().map(|(k, _)| k.to_string()).collect()
+    }
+
+    pub fn insert(&mut self, key: &str, value: SecretValue) {
+        if let Some(v) = self.get_mut(key) {
+            *v = Some(value)
+        } else {
+            self.data.push((key.into(), Some(value)));
+        }
+    }
+
+    // fn get(&self, key: &str) -> Option<&Option<SecretValue>> {
+    //     for (k, v) in &self.data {
+    //         if k == key {
+    //             return Some(v);
     //         }
-    //         _ => panic!("Malformed store"),
     //     }
+    //     None
     // }
+
+    fn get_mut(&mut self, key: &str) -> Option<&mut Option<SecretValue>> {
+        for (k, v) in self.data.iter_mut() {
+            if k == key {
+                return Some(v);
+            }
+        }
+        None
+    }
+    pub fn remove(&mut self, key: &str) -> Option<(String, Option<SecretValue>)> {
+        let pos = self.data.iter().position(|(k, _)| k == key)?;
+        Some(self.data.remove(pos))
+    }
+    pub fn swap(&mut self, first: &str, second: &str) {
+        let mut pos1 = 0;
+        let mut pos2 = 0;
+        for (i, (k, _)) in self.data.iter().enumerate() {
+            if k == first {
+                pos1 = i;
+            }
+            if k == second {
+                pos2 = i;
+            }
+        }
+        self.data.swap(pos1, pos2);
+    }
+    pub fn move_to(&mut self, first: &str, second: &str) {
+        let mut pos1 = 0;
+        let mut pos2 = 0;
+        for (i, (k, _)) in self.data.iter().enumerate() {
+            if k == first {
+                pos1 = i;
+            }
+            if k == second {
+                pos2 = i;
+            }
+        }
+        let temp = self.data[pos1].clone();
+        self.data.remove(pos1);
+        self.data.insert(pos2, temp);
+    }
+
+    pub fn unchanged(&self, fields: &[String]) -> bool {
+        let mut curr = Vec::new();
+        for (k, v) in &self.data {
+            if v.is_some() {
+                return true;
+            }
+            curr.push(k.to_string());
+        }
+        curr == fields
+    }
 }

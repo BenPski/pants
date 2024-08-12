@@ -1,7 +1,7 @@
 use iced::Theme;
 use secrecy::Secret;
 
-use pants_store::{store::StoreChoice, Password};
+use pants_store::Password;
 
 use super::{connection, vault::VaultMessage};
 
@@ -30,4 +30,11 @@ pub enum GUIMessage {
     Close,
     Nothing,
     // Send(Message),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StoreChoice {
+    Password,
+    UsernamePassword,
+    Generic,
 }

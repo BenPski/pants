@@ -35,8 +35,18 @@ impl IntoIterator for Info {
 
 impl Display for Info {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (key, value) in self.data.iter() {
-            writeln!(f, "{}: {}", key, value)?;
+        for (vault, schema) in self.data.iter() {
+            writeln!(f, "{vault}:")?;
+            if schema.is_empty() {
+                writeln!(f, "  is empty")?;
+            } else {
+                for (entry, fields) in &schema.data {
+                    writeln!(f, " {entry}:")?;
+                    for field in fields {
+                        writeln!(f, "  - {field}")?;
+                    }
+                }
+            }
         }
         Ok(())
     }
