@@ -112,7 +112,6 @@ pub mod reads;
 pub mod schema;
 pub mod secure;
 pub mod store;
-pub mod transaction;
 pub mod utils;
 pub mod vault;
 
