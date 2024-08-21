@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
-use crate::schema::Schema;
+use crate::vault::schema::Schema;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Info {
@@ -40,11 +40,13 @@ impl Display for Info {
             if schema.is_empty() {
                 writeln!(f, "  is empty")?;
             } else {
-                for (entry, fields) in &schema.data {
+                for (entry, fields) in &schema.entries {
                     writeln!(f, " {entry}:")?;
-                    for field in fields {
+                    for field in &fields.values {
                         writeln!(f, "  - {field}")?;
                     }
+                    write!(f, "  description {}", fields.description)?;
+                    write!(f, "  urls {:?}", fields.urls)?;
                 }
             }
         }

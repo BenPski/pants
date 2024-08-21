@@ -1,5 +1,8 @@
+pub mod config;
 pub mod dir;
+pub mod encrypted;
 pub mod entry;
+pub mod group;
 pub mod schema;
 
 use std::collections::BTreeMap;

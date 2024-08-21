@@ -1,18 +1,18 @@
 use std::path::PathBuf;
 
-use chrono::{DateTime, Local, NaiveDateTime, ParseError};
+use chrono::{DateTime, NaiveDateTime, ParseError, Utc};
 
-pub fn now() -> DateTime<Local> {
-    Local::now()
+pub fn now() -> DateTime<Utc> {
+    Utc::now()
 }
 
-pub fn format_date(date: DateTime<Local>) -> String {
+pub fn format_date(date: DateTime<Utc>) -> String {
     date.format("%Y_%m_%d_%H_%M_%S_%f").to_string()
 }
 
-pub fn read_date(date: &str) -> Result<DateTime<Local>, ParseError> {
+pub fn read_date(date: &str) -> Result<DateTime<Utc>, ParseError> {
     let res = NaiveDateTime::parse_from_str(date, "%Y_%m_%d_%H_%M_%S_%f")
-        .map(|x| x.and_local_timezone(Local).unwrap())?;
+        .map(|x| x.and_local_timezone(Utc).unwrap())?;
     Ok(res)
 }
 

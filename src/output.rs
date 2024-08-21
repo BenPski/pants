@@ -1,13 +1,17 @@
 use boring_derive::From;
 
-use crate::{file::BackupFile, info::Info, reads::Reads, schema::Schema, store::Store};
+use crate::{
+    info::Info,
+    reads::Reads,
+    vault::{dir::BackupFile, entry::Entry, schema::Schema},
+};
 
 #[derive(Debug, Clone, From)]
 pub enum Output {
     Info(Info),
     Schema(Schema),
     BackupFiles(Vec<BackupFile>),
-    Read(Reads<Store>),
+    Read(Reads<Entry>),
     List(Vec<String>),
     Backup(BackupFile),
     Content(String),

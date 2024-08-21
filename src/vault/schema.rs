@@ -1,19 +1,32 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
 use super::{entry::Entry, Vault};
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Schema {
-    entries: BTreeMap<String, SchemaEntry>,
+    pub(crate) entries: BTreeMap<String, SchemaEntry>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+impl Display for Schema {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (key, value) in self.entries.iter() {
+            writeln!(f, "{key}:")?;
+            writeln!(f, "  description: {}", value.description)?;
+            writeln!(f, "  urls: {:?}", value.urls)?;
+            for field in &value.values {
+                writeln!(f, " - {field}")?;
+            }
+        }
+        Ok(())
+    }
+}
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct SchemaEntry {
-    values: Vec<String>,
-    description: String,
-    urls: Vec<String>,
+    pub(crate) values: Vec<String>,
+    pub(crate) description: String,
+    pub(crate) urls: Vec<String>,
 }
 
 impl From<Entry> for SchemaEntry {
@@ -35,5 +48,11 @@ impl From<Vault> for Schema {
                 .map(|(k, v)| (k, v.into()))
                 .collect(),
         }
+    }
+}
+
+impl Schema {
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
     }
 }

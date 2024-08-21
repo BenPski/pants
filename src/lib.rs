@@ -97,23 +97,23 @@
 //!  - backup: creates a backup of the current vault
 //!  - gen: exposes the password generator in [pants-gen](https://docs.rs/pants-gen/)
 
+use aes_gcm::Key;
+use encrypt_stuff::{symmetric::encryption::Encryption, DefaultScheme};
 use secrecy::Secret;
-pub mod action;
-pub mod command;
-pub mod config;
+// pub mod config;
 pub mod errors;
-pub mod file;
+// pub mod file;
 pub mod info;
-pub mod manager_message;
-pub mod message;
-pub mod operation;
+// pub mod manager_message;
+// pub mod message;
 pub mod output;
 pub mod reads;
-pub mod schema;
-pub mod secure;
-pub mod store;
-pub mod transaction;
+// pub mod schema;
+// pub mod secure;
+// pub mod store;
+// pub mod transaction;
 pub mod utils;
 pub mod vault;
 
 pub type Password = Secret<String>;
+pub type DefaultKey = Key<<DefaultScheme as Encryption>::Cipher>;
