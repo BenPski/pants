@@ -102,16 +102,12 @@ use encrypt_stuff::{symmetric::encryption::Encryption, DefaultScheme};
 use secrecy::Secret;
 // pub mod config;
 pub mod errors;
-// pub mod file;
 pub mod info;
 // pub mod manager_message;
 // pub mod message;
+pub mod client;
 pub mod output;
 pub mod reads;
-// pub mod schema;
-// pub mod secure;
-// pub mod store;
-// pub mod transaction;
 pub mod utils;
 pub mod vault;
 
